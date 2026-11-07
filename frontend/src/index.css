@@ -1,0 +1,49 @@
+@import 'tailwindcss';
+
+/* ธีมหลักของระบบ: เขียวเข้ม / ขาว / เทาอ่อน + สีสถานะ */
+@theme {
+  --font-sans: 'Noto Sans Thai', ui-sans-serif, system-ui, sans-serif;
+
+  --color-primary-50: #f0fdf4;
+  --color-primary-100: #dcfce7;
+  --color-primary-200: #bbf7d0;
+  --color-primary-500: #22c55e;
+  --color-primary-600: #16a34a;
+  --color-primary-700: #15803d;
+  --color-primary-800: #166534;
+  --color-primary-900: #14532d;
+
+  --color-surface: #f4f6f5;
+
+  --color-success: #16a34a;
+  --color-warning: #eab308;
+  --color-danger: #dc2626;
+}
+
+@layer base {
+  html,
+  body,
+  #root {
+    height: 100%;
+  }
+  body {
+    @apply bg-surface text-slate-800 antialiased;
+  }
+}
+
+/* คลาสส่วนกลางที่ใช้ซ้ำทั้งระบบ (Tailwind v4 ใช้ @utility แทน @layer components) */
+@utility card {
+  @apply rounded-2xl border border-slate-200/70 bg-white shadow-sm;
+}
+@utility btn {
+  @apply inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2 text-sm font-medium transition disabled:cursor-not-allowed disabled:opacity-60;
+}
+@utility btn-primary {
+  @apply btn bg-primary-800 text-white hover:bg-primary-900;
+}
+@utility btn-outline {
+  @apply btn border border-slate-300 bg-white text-slate-700 hover:bg-slate-50;
+}
+@utility badge {
+  @apply inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-medium;
+}
