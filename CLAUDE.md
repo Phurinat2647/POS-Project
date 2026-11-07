@@ -17,7 +17,7 @@ Food POS Management System — ระบบ POS ร้านอาหารต�
 | Phase | งาน | สถานะ |
 |---|---|---|
 | 1 | โครงสร้างโปรเจกต์, เชื่อมต่อ MySQL, Schema, Seed | ✅ เสร็จ |
-| 2 | Auth (JWT + Role), Dashboard, จัดการเมนู/หมวดหมู่ | ⏳ |
+| 2 | Auth (JWT + Role) ✅ / Dashboard, จัดการเมนู/หมวดหมู่ ⏳ | 🟡 |
 | 3 | POS, Orders, Kitchen (Socket.IO) | ⏳ |
 | 4 | Payment + ใบเสร็จ, Inventory, Sales Report | ⏳ |
 | 5 | ทดสอบระบบ / API / Responsive | ⏳ |
@@ -57,7 +57,7 @@ backend/src/
   controllers/  รับ req/validate/ส่ง response — บางที่สุด
   services/     business logic + SQL
   models/       (ถ้าจำเป็น) query helper ของแต่ละตาราง
-  middlewares/  errorHandler.js (notFound + errorHandler), auth/role middleware (Phase 2)
+  middlewares/  errorHandler.js (notFound + errorHandler), auth.js (authenticate → req.user, authorize(...roles)), loginLimiter.js
   utils/        ApiError, asyncHandler, money (toSatang/toBaht)
 backend/database/schema.sql, seed.sql   — แหล่งความจริงของโครงสร้างฐานข้อมูล
 ```
@@ -105,7 +105,9 @@ backend/database/schema.sql, seed.sql   — แหล่งความจริ
   คลาสส่วนกลาง (`card`, `btn`, `btn-primary`, `btn-outline`, `badge`) ประกาศด้วย `@utility` (ไม่ใช่ `@layer components` เพราะ `@apply` ใช้กับคลาสในนั้นไม่ได้)
 - ธีม: สีหลักเขียวเข้ม `primary-800` (#166534), พื้นหลัง `bg-surface`, สถานะ `success`/`warning`/`danger`, ฟอนต์ Noto Sans Thai
 - Layout เป้าหมาย: Sidebar ซ้าย + Topbar + เนื้อหากลาง, Card/Table/Modal, รองรับ Desktop/Tablet/Mobile
-- ตอนนี้มีหน้าเดียวคือ `/system-status` (Phase 1) จะถูกแทนด้วย Login/Dashboard ใน Phase 2
+- Auth: `contexts/AuthContext.jsx` (`useAuth()` → user, status, login, logout, hasRole), `components/ProtectedRoute.jsx` (`roles` prop), `layouts/MainLayout.jsx` (เพิ่มเมนู Sidebar ที่ `NAV_ITEMS`)
+  API ตอบ 401 → `api.js` ล้าง token และยิง event `food-pos:unauthorized` ให้ AuthContext กลับหน้า Login
+- หน้าที่มี: `/login`, `/` (หน้าหลักชั่วคราว รอ Dashboard), `/change-password`, `/forbidden`, `/system-status` (admin)
 
 ## ข้อควรระวังเรื่องสภาพแวดล้อม (Windows)
 

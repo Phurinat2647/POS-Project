@@ -2,8 +2,8 @@
 
 ระบบบริหารจัดการร้านอาหารตามสั่ง (POS) — React + Vite + Tailwind CSS / Node.js + Express / MySQL
 
-> **สถานะปัจจุบัน: Phase 1 เสร็จสมบูรณ์** (โครงสร้างโปรเจกต์ + ฐานข้อมูล + Seed Data)
-> ฟีเจอร์ของ Phase 2–5 **ยังไม่ได้พัฒนา** ดูตาราง [ความคืบหน้า](#ความคืบหน้า) ด้านล่าง
+> **สถานะปัจจุบัน: Phase 1 เสร็จ, Phase 2 เสร็จเฉพาะส่วน Authentication**
+> Dashboard, จัดการเมนู/หมวดหมู่ และ Phase 3–5 **ยังไม่ได้พัฒนา** ดูตาราง [ความคืบหน้า](#ความคืบหน้า) ด้านล่าง
 
 ---
 
@@ -30,8 +30,8 @@ Project/
 │   │   ├── config/             # env, database pool + transaction helper, socket.io
 │   │   ├── controllers/
 │   │   ├── models/
-│   │   ├── routes/             # /api/health (Phase 1)
-│   │   ├── middlewares/        # error handler, 404
+│   │   ├── routes/             # /api/health, /api/auth
+│   │   ├── middlewares/        # error handler, 404, auth (authenticate/authorize), loginLimiter
 │   │   ├── services/
 │   │   ├── utils/              # ApiError, asyncHandler, money (คำนวณเป็นสตางค์)
 │   │   ├── app.js
@@ -95,7 +95,7 @@ npm run build        # build สำหรับ production -> dist/
 npm run preview      # ทดลองเปิดไฟล์ที่ build แล้ว
 ```
 
-เปิด http://localhost:5173 → จะพบหน้า **ตรวจสอบสถานะระบบ** ที่ยืนยันว่า Frontend → Backend → Database เชื่อมต่อกันได้จริง
+เปิด http://localhost:5173 → จะพบหน้า **เข้าสู่ระบบ** (ใช้บัญชีทดสอบด้านล่าง) หน้า **สถานะระบบ** (`/system-status`) เปิดได้เฉพาะ admin
 
 ## บัญชีทดสอบเริ่มต้น
 
@@ -142,13 +142,22 @@ npm run preview      # ทดลองเปิดไฟล์ที่ build �
 | Method | Endpoint | คำอธิบาย |
 |---|---|---|
 | GET | `/api/health` | ตรวจสอบ API, การเชื่อมต่อฐานข้อมูล และความครบถ้วนของตาราง |
+| POST | `/api/auth/login` | `{ username, password }` → `{ token, expiresIn, user }` (ผิด 5 ครั้ง/15 นาที ต่อ IP+username จะถูกล็อก → 429) |
+| GET | `/api/auth/me` | ข้อมูลผู้ใช้ปัจจุบัน (ต้องส่ง `Authorization: Bearer <token>`) |
+| PUT | `/api/auth/change-password` | `{ currentPassword, newPassword }` รหัสใหม่อย่างน้อย 8 ตัวอักษร |
+
+การยืนยันตัวตน:
+- JWT (HS256) อายุตาม `JWT_EXPIRES_IN` — middleware `authenticate` โหลดผู้ใช้จาก DB ทุก request ผู้ใช้ที่ถูกปิด (`is_active = 0`) จะใช้ token เดิมไม่ได้ทันที
+- จำกัดสิทธิ์ด้วย `authorize('admin', 'cashier')` ใน `backend/src/middlewares/auth.js` และ `<ProtectedRoute roles={[...]}>` ฝั่ง Frontend
+- Socket.IO ต้องส่ง token ตอนเชื่อมต่อ `io({ auth: { token } })` และจะเข้าห้อง `role:<role>`
 
 ## ความคืบหน้า
 
 | Phase | งาน | สถานะ |
 |---|---|---|
 | 1 | โครงสร้างโปรเจกต์, ตั้งค่า Frontend/Backend, เชื่อมต่อ MySQL, Schema, Seed Data | ✅ เสร็จ |
-| 2 | Authentication (JWT + Role), Dashboard, จัดการเมนูและหมวดหมู่ | ⏳ ยังไม่ได้พัฒนา |
+| 2 | Authentication (JWT + Role) | ✅ เสร็จ |
+| 2 | Dashboard, จัดการเมนูและหมวดหมู่ | ⏳ ยังไม่ได้พัฒนา |
 | 3 | POS, Order Management, Kitchen (Socket.IO) | ⏳ ยังไม่ได้พัฒนา |
 | 4 | Payment + ใบเสร็จ, Inventory, Sales Report | ⏳ ยังไม่ได้พัฒนา |
 | 5 | ทดสอบระบบ / API / Responsive | ⏳ ยังไม่ได้พัฒนา |
@@ -156,4 +165,4 @@ npm run preview      # ทดลองเปิดไฟล์ที่ build �
 หมายเหตุทางเทคนิค:
 - ใช้ `bcryptjs` (pure JavaScript, API เดียวกับ `bcrypt`) เพื่อไม่ต้อง compile native module บน Windows
 - ใช้ `mysql2/promise` (ไม่ใช้ ORM) พร้อม helper `withTransaction()` ใน `backend/src/config/database.js` สำหรับการสร้างออเดอร์และชำระเงินใน Phase ถัดไป
-- Socket.IO ตั้งค่าเซิร์ฟเวอร์ไว้แล้ว แต่ยังไม่มี event และยังไม่ยืนยันตัวตนผ่าน JWT (Phase 3)
+- Socket.IO ยืนยันตัวตนผ่าน JWT แล้ว แต่ยังไม่มี event (Phase 3)
