@@ -2,8 +2,8 @@
 
 ระบบบริหารจัดการร้านอาหารตามสั่ง (POS) — React + Vite + Tailwind CSS / Node.js + Express / MySQL
 
-> **สถานะปัจจุบัน: Phase 1 เสร็จ, Phase 2 เสร็จเฉพาะส่วน Authentication**
-> Dashboard, จัดการเมนู/หมวดหมู่ และ Phase 3–5 **ยังไม่ได้พัฒนา** ดูตาราง [ความคืบหน้า](#ความคืบหน้า) ด้านล่าง
+> **สถานะปัจจุบัน: Phase 1–2 เสร็จ** (โครงสร้าง + ฐานข้อมูล, Authentication, Dashboard, จัดการเมนู/หมวดหมู่/ตัวเลือก)
+> Phase 3–5 (POS, ครัว, ชำระเงิน, คลังวัตถุดิบ, รายงาน) **ยังไม่ได้พัฒนา** ดูตาราง [ความคืบหน้า](#ความคืบหน้า) ด้านล่าง
 
 ---
 
@@ -27,13 +27,13 @@ Project/
 │   │   ├── db-check.js         # npm run db:check
 │   │   └── hash-password.js    # npm run hash -- <password>
 │   ├── src/
-│   │   ├── config/             # env, database pool + transaction helper, socket.io
 │   │   ├── controllers/
 │   │   ├── models/
-│   │   ├── routes/             # /api/health, /api/auth
+│   │   ├── config/             # env, database, socket.io, upload (multer รูปเมนู)
+│   │   ├── routes/             # health, auth, dashboard, categories, menus, menu-options
 │   │   ├── middlewares/        # error handler, 404, auth (authenticate/authorize), loginLimiter
 │   │   ├── services/
-│   │   ├── utils/              # ApiError, asyncHandler, money (คำนวณเป็นสตางค์)
+│   │   ├── utils/              # ApiError, asyncHandler, money (สตางค์), jwt, validate
 │   │   ├── app.js
 │   │   └── server.js
 │   ├── uploads/menus/          # รูปภาพเมนูที่อัปโหลด
@@ -95,7 +95,15 @@ npm run build        # build สำหรับ production -> dist/
 npm run preview      # ทดลองเปิดไฟล์ที่ build แล้ว
 ```
 
-เปิด http://localhost:5173 → จะพบหน้า **เข้าสู่ระบบ** (ใช้บัญชีทดสอบด้านล่าง) หน้า **สถานะระบบ** (`/system-status`) เปิดได้เฉพาะ admin
+เปิด http://localhost:5173 → หน้า **เข้าสู่ระบบ** (ใช้บัญชีทดสอบด้านล่าง)
+
+| หน้า | admin | cashier | kitchen |
+|---|---|---|---|
+| Dashboard (`/`) | ✅ | ✅ | — (หน้าต้อนรับ) |
+| เมนูอาหาร (`/menus`) | เพิ่ม/แก้ไข/ลบ/อัปโหลดรูป | ตั้งพร้อมขาย/หมด | ตั้งพร้อมขาย/หมด |
+| หมวดหมู่ (`/categories`), ตัวเลือกเมนู (`/menu-options`), สถานะระบบ (`/system-status`) | ✅ | — | — |
+
+> Dashboard อ่านยอดขายจากตาราง `orders` จริง — ตอนนี้ยังเป็น 0 เพราะระบบ POS (สร้างออเดอร์) จะมาใน Phase 3
 
 ## บัญชีทดสอบเริ่มต้น
 
@@ -145,6 +153,15 @@ npm run preview      # ทดลองเปิดไฟล์ที่ build �
 | POST | `/api/auth/login` | `{ username, password }` → `{ token, expiresIn, user }` (ผิด 5 ครั้ง/15 นาที ต่อ IP+username จะถูกล็อก → 429) |
 | GET | `/api/auth/me` | ข้อมูลผู้ใช้ปัจจุบัน (ต้องส่ง `Authorization: Bearer <token>`) |
 | PUT | `/api/auth/change-password` | `{ currentPassword, newPassword }` รหัสใหม่อย่างน้อย 8 ตัวอักษร |
+| GET | `/api/dashboard/summary` | admin, cashier — ยอดขายวันนี้/เมื่อวาน, ออเดอร์วันนี้ตามสถานะ, ยอดขาย 7 วัน, เมนูขายดี, เมนูพร้อมขาย, วัตถุดิบใกล้หมด, ออเดอร์ล่าสุด |
+| GET | `/api/categories` | ทุก role (`?includeInactive=1` เฉพาะ admin) พร้อม `menuCount` |
+| POST / PUT / DELETE | `/api/categories[/:id]` | admin — ลบไม่ได้ถ้ายังมีเมนู, ถ้ามีแค่เมนูที่ถูก soft delete จะปิดใช้งานแทน |
+| GET | `/api/menus` | ทุก role — `?categoryId=&status=available|sold_out&search=` |
+| GET | `/api/menus/:id` | รายละเอียดเมนู + `options` ที่ใช้ได้ (เฉพาะเมนู + ทั้งหมวด + ทุกเมนู) |
+| POST / PUT | `/api/menus[/:id]` | admin — `multipart/form-data`: categoryId, name, description, price, status, image (JPG/PNG/WEBP ≤ 5MB), removeImage |
+| PATCH | `/api/menus/:id/status` | admin, cashier, kitchen — `{ status }` พร้อมขาย/หมด |
+| DELETE | `/api/menus/:id` | admin — เคยถูกขายแล้ว → soft delete (`is_active = 0`), ยังไม่เคยขาย → ลบจริงพร้อมไฟล์รูป |
+| GET / POST / PUT / DELETE | `/api/menu-options[/:id]` | admin — `{ scope: all|category|menu, categoryId?, menuId?, optionType: size|topping, name, extraPrice, isDefault, sortOrder, isActive }` ค่าเริ่มต้นของขนาดมีได้ 1 รายการต่อขอบเขต |
 
 การยืนยันตัวตน:
 - JWT (HS256) อายุตาม `JWT_EXPIRES_IN` — middleware `authenticate` โหลดผู้ใช้จาก DB ทุก request ผู้ใช้ที่ถูกปิด (`is_active = 0`) จะใช้ token เดิมไม่ได้ทันที
@@ -156,8 +173,7 @@ npm run preview      # ทดลองเปิดไฟล์ที่ build �
 | Phase | งาน | สถานะ |
 |---|---|---|
 | 1 | โครงสร้างโปรเจกต์, ตั้งค่า Frontend/Backend, เชื่อมต่อ MySQL, Schema, Seed Data | ✅ เสร็จ |
-| 2 | Authentication (JWT + Role) | ✅ เสร็จ |
-| 2 | Dashboard, จัดการเมนูและหมวดหมู่ | ⏳ ยังไม่ได้พัฒนา |
+| 2 | Authentication (JWT + Role), Dashboard, จัดการเมนู/หมวดหมู่/ตัวเลือกเมนู | ✅ เสร็จ |
 | 3 | POS, Order Management, Kitchen (Socket.IO) | ⏳ ยังไม่ได้พัฒนา |
 | 4 | Payment + ใบเสร็จ, Inventory, Sales Report | ⏳ ยังไม่ได้พัฒนา |
 | 5 | ทดสอบระบบ / API / Responsive | ⏳ ยังไม่ได้พัฒนา |

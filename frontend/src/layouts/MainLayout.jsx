@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { NavLink, Outlet, useLocation } from 'react-router-dom';
-import { Activity, Home, KeyRound, LogOut, Menu, UtensilsCrossed, X } from 'lucide-react';
+import { Activity, FolderTree, Home, KeyRound, LayoutDashboard, ListPlus, LogOut, Menu, Soup, UtensilsCrossed, X } from 'lucide-react';
 import Swal from 'sweetalert2';
 import { useAuth } from '../contexts/AuthContext';
 import { ROLES } from '../utils/roles';
@@ -10,7 +10,11 @@ import { ROLES } from '../utils/roles';
  * เพิ่มรายการของโมดูลใหม่ที่นี่เมื่อพัฒนาเสร็จ (Dashboard, เมนู, POS ฯลฯ)
  */
 const NAV_ITEMS = [
-  { to: '/', label: 'หน้าหลัก', icon: Home, end: true },
+  { to: '/', label: 'Dashboard', icon: LayoutDashboard, end: true, roles: [ROLES.ADMIN, ROLES.CASHIER] },
+  { to: '/', label: 'หน้าหลัก', icon: Home, end: true, roles: [ROLES.KITCHEN] },
+  { to: '/menus', label: 'เมนูอาหาร', icon: Soup },
+  { to: '/categories', label: 'หมวดหมู่', icon: FolderTree, roles: [ROLES.ADMIN] },
+  { to: '/menu-options', label: 'ตัวเลือกเมนู', icon: ListPlus, roles: [ROLES.ADMIN] },
   { to: '/system-status', label: 'สถานะระบบ', icon: Activity, roles: [ROLES.ADMIN] },
 ];
 
@@ -57,7 +61,7 @@ export default function MainLayout() {
         <nav className="flex-1 space-y-1 px-3 py-2">
           {items.map(({ to, label, icon: Icon, end }) => (
             <NavLink
-              key={to}
+              key={label}
               to={to}
               end={end}
               className={({ isActive }) =>
