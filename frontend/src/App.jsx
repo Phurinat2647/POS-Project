@@ -13,11 +13,15 @@ import SystemStatusPage from './pages/SystemStatusPage';
 import PosPage from './pages/PosPage';
 import OrdersPage from './pages/OrdersPage';
 import KitchenPage from './pages/KitchenPage';
+import InventoryPage from './pages/InventoryPage';
+import SettingsPage from './pages/SettingsPage';
+import ReceiptPage from './pages/ReceiptPage';
 import FullPageLoader from './components/FullPageLoader';
 import { ROLES } from './utils/roles';
 
 // Dashboard ใช้ Recharts (ขนาดใหญ่) — โหลดเมื่อเปิดหน้าเท่านั้น
 const DashboardPage = lazy(() => import('./pages/DashboardPage'));
+const ReportsPage = lazy(() => import('./pages/ReportsPage'));
 
 const { ADMIN, CASHIER, KITCHEN } = ROLES;
 
@@ -40,6 +44,11 @@ export default function App() {
           <Route path="/login" element={<LoginPage />} />
 
           <Route element={<ProtectedRoute />}>
+            {/* ใบเสร็จ: หน้าเปล่าสำหรับพิมพ์ (ไม่มี Sidebar) */}
+            <Route element={<ProtectedRoute roles={[ADMIN, CASHIER]} />}>
+              <Route path="orders/:id/receipt" element={<ReceiptPage />} />
+            </Route>
+
             <Route element={<MainLayout />}>
               <Route index element={<IndexPage />} />
               <Route path="change-password" element={<ChangePasswordPage />} />
@@ -55,10 +64,23 @@ export default function App() {
                 <Route path="orders" element={<OrdersPage />} />
               </Route>
 
+              <Route element={<ProtectedRoute roles={[ADMIN, KITCHEN]} />}>
+                <Route path="inventory" element={<InventoryPage />} />
+              </Route>
+
               <Route element={<ProtectedRoute roles={[ADMIN]} />}>
                 <Route path="categories" element={<CategoriesPage />} />
                 <Route path="menu-options" element={<MenuOptionsPage />} />
                 <Route path="system-status" element={<SystemStatusPage />} />
+                <Route path="settings" element={<SettingsPage />} />
+                <Route
+                  path="reports"
+                  element={
+                    <Suspense fallback={<FullPageLoader />}>
+                      <ReportsPage />
+                    </Suspense>
+                  }
+                />
               </Route>
             </Route>
           </Route>

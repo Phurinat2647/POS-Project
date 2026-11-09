@@ -2,7 +2,10 @@ import { useEffect, useState } from 'react';
 import { NavLink, Outlet, useLocation } from 'react-router-dom';
 import {
   Activity,
+  ChartColumn,
   ChefHat,
+  Package,
+  Store,
   ClipboardList,
   FolderTree,
   KeyRound,
@@ -31,9 +34,12 @@ const NAV_ITEMS = [
   { to: '/pos', label: 'ขายหน้าร้าน (POS)', icon: ShoppingCart, roles: [ROLES.ADMIN, ROLES.CASHIER] },
   { to: '/orders', label: 'ออเดอร์', icon: ClipboardList, roles: [ROLES.ADMIN, ROLES.CASHIER] },
   { to: '/kitchen', label: 'ครัว', icon: ChefHat },
+  { to: '/inventory', label: 'คลังวัตถุดิบ', icon: Package, roles: [ROLES.ADMIN, ROLES.KITCHEN] },
+  { to: '/reports', label: 'รายงานยอดขาย', icon: ChartColumn, roles: [ROLES.ADMIN] },
   { to: '/menus', label: 'เมนูอาหาร', icon: Soup },
   { to: '/categories', label: 'หมวดหมู่', icon: FolderTree, roles: [ROLES.ADMIN] },
   { to: '/menu-options', label: 'ตัวเลือกเมนู', icon: ListPlus, roles: [ROLES.ADMIN] },
+  { to: '/settings', label: 'ตั้งค่าร้าน', icon: Store, roles: [ROLES.ADMIN] },
   { to: '/system-status', label: 'สถานะระบบ', icon: Activity, roles: [ROLES.ADMIN] },
 ];
 

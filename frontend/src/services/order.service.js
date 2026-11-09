@@ -18,5 +18,18 @@ export const getKitchenQueue = async () => (await api.get('/orders/kitchen')).da
  */
 export const createOrder = async (payload) => (await api.post('/orders', payload)).data;
 
+/**
+ * รับชำระเงิน — Backend คำนวณยอดใหม่จาก DB
+ * payload: { method: 'cash'|'promptpay', receivedAmount?, referenceNo?, discount?: { type: 'amount'|'percent', value } }
+ */
+export const payOrder = async (id, payload) => (await api.post(`/orders/${id}/payment`, payload)).data;
+
+/** ใบเสร็จ: { shop, order } (เฉพาะออเดอร์ที่ชำระแล้ว) */
+export const getReceipt = async (id) => (await api.get(`/orders/${id}/receipt`)).data.data;
+
+/** เปิดใบเสร็จในแท็บใหม่ (print=1 สั่งพิมพ์อัตโนมัติ) */
+export const openReceipt = (id, { print = true } = {}) =>
+  window.open(`/orders/${id}/receipt${print ? '?print=1' : ''}`, '_blank', 'noopener');
+
 /** status: preparing | completed | cancelled */
 export const updateOrderStatus = async (id, status) => (await api.patch(`/orders/${id}/status`, { status })).data;

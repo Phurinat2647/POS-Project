@@ -66,4 +66,30 @@ function oneOf(value, allowed, label) {
   return value;
 }
 
-module.exports = { requiredString, optionalString, money, id, optionalId, integer, bool, oneOf };
+/** ปริมาณ (เช่น วัตถุดิบ) >= 0 ทศนิยมไม่เกิน 3 ตำแหน่ง — positive: ต้องมากกว่า 0 */
+function quantity(value, label, { positive = false, max = 999999999.999 } = {}) {
+  if (value === undefined || value === null || String(value).trim() === '') {
+    throw ApiError.badRequest(`กรุณากรอก${label}`);
+  }
+  const n = Number(value);
+  if (!Number.isFinite(n)) throw ApiError.badRequest(`${label}ต้องเป็นตัวเลข`);
+  if (n < 0 || (positive && n === 0)) throw ApiError.badRequest(`${label}ต้องมากกว่า${positive ? '' : 'หรือเท่ากับ'} 0`);
+  if (n > max) throw ApiError.badRequest(`${label}สูงเกินไป`);
+  const milli = Math.round(n * 1000);
+  if (Math.abs(milli - n * 1000) > 1e-6) throw ApiError.badRequest(`${label}มีทศนิยมได้ไม่เกิน 3 ตำแหน่ง`);
+  return milli / 1000;
+}
+
+/** วันที่รูปแบบ YYYY-MM-DD (ไม่ส่งมา -> null) */
+function optionalDate(value, label = 'วันที่') {
+  if (value === undefined || value === null || value === '') return null;
+  const s = String(value);
+  const [y, m, d] = s.split('-').map(Number);
+  const dt = new Date(Date.UTC(y, m - 1, d));
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(s) || dt.getUTCFullYear() !== y || dt.getUTCMonth() !== m - 1 || dt.getUTCDate() !== d) {
+    throw ApiError.badRequest(`${label}ไม่ถูกต้อง`);
+  }
+  return s;
+}
+
+module.exports = { requiredString, optionalString, money, id, optionalId, integer, bool, oneOf, quantity, optionalDate };

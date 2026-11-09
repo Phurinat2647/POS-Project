@@ -57,19 +57,12 @@ function parseStatuses(value) {
     .map((s) => v.oneOf(s, STATUSES, 'สถานะ'));
 }
 
-function parseDate(value) {
-  if (!value) return null;
-  const s = String(value);
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(s) || Number.isNaN(Date.parse(s))) throw ApiError.badRequest('วันที่ไม่ถูกต้อง');
-  return s;
-}
-
 async function list(req, res) {
   const q = req.query;
   const data = await service.list({
     statuses: parseStatuses(q.status),
     paymentStatus: q.paymentStatus ? v.oneOf(q.paymentStatus, PAYMENT_STATUSES, 'สถานะการชำระเงิน') : null,
-    date: parseDate(q.date),
+    date: v.optionalDate(q.date),
     search: v.optionalString(q.search, 'คำค้นหา', 50),
     page: v.integer(q.page, 'หน้า', { min: 1, max: 100000, fallback: 1 }),
     pageSize: v.integer(q.pageSize, 'จำนวนต่อหน้า', { min: 1, max: 100, fallback: 20 }),

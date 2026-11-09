@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { ChevronLeft, ChevronRight, Eye, Plus, Search } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Eye, Plus, Printer, Search, Wallet } from 'lucide-react';
+import PaymentModal from '../components/PaymentModal';
 import { Link } from 'react-router-dom';
 import Swal from 'sweetalert2';
 import PageHeader from '../components/PageHeader';
@@ -7,7 +8,7 @@ import Modal from '../components/Modal';
 import OrderItems from '../components/OrderItems';
 import { EmptyState, ErrorState, LoadingState } from '../components/States';
 import { useSocketEvent, useSocketReconnect } from '../contexts/SocketContext';
-import { getOrders, updateOrderStatus } from '../services/order.service';
+import { getOrders, openReceipt, updateOrderStatus } from '../services/order.service';
 import { showError, toastSuccess } from '../utils/alert';
 import { formatCurrency, formatDateTime, formatTime } from '../utils/format';
 import { ORDER_NEXT_STEP, ORDER_STATUS, ORDER_TYPE, PAYMENT_STATUS, canCancelOrder } from '../utils/labels';
@@ -32,6 +33,7 @@ export default function OrdersPage() {
   const [error, setError] = useState(null);
   const [selectedId, setSelectedId] = useState(null);
   const [busy, setBusy] = useState(false);
+  const [paying, setPaying] = useState(null);
   const reloadTimer = useRef(null);
 
   useEffect(() => {
@@ -215,7 +217,20 @@ export default function OrdersPage() {
         )}
       </div>
 
-      <OrderDetailModal order={selected} busy={busy} onClose={() => setSelectedId(null)} onChangeStatus={changeStatus} />
+      <OrderDetailModal
+        order={paying ? null : selected}
+        busy={busy}
+        onClose={() => setSelectedId(null)}
+        onChangeStatus={changeStatus}
+        onPay={setPaying}
+      />
+      {paying && (
+        <PaymentModal
+          order={paying}
+          onClose={() => setPaying(null)}
+          onPaid={(paid) => setData((d) => ({ ...d, orders: d.orders.map((o) => (o.id === paid.id ? { ...o, ...paid } : o)) }))}
+        />
+      )}
     </div>
   );
 }
@@ -243,9 +258,12 @@ function Pagination({ pagination, onChange }) {
   );
 }
 
-function OrderDetailModal({ order, busy, onClose, onChangeStatus }) {
+const METHOD_LABEL = { cash: 'เงินสด', promptpay: 'PromptPay' };
+
+function OrderDetailModal({ order, busy, onClose, onChangeStatus, onPay }) {
   if (!order) return null;
   const step = ORDER_NEXT_STEP[order.status];
+  const canPay = order.paymentStatus === 'unpaid' && order.status !== 'cancelled';
   const timeline = [
     ['สั่งเมื่อ', order.createdAt],
     ['เริ่มทำ', order.preparingAt],
@@ -270,11 +288,21 @@ function OrderDetailModal({ order, busy, onClose, onChangeStatus }) {
           ) : (
             <span />
           )}
-          <div className="flex gap-2">
+          <div className="flex flex-wrap justify-end gap-2">
             <button className="btn-outline" onClick={onClose} disabled={busy}>ปิด</button>
             {step && (
-              <button className="btn-primary" disabled={busy} onClick={() => onChangeStatus(order, step.status)}>
+              <button className="btn-outline" disabled={busy} onClick={() => onChangeStatus(order, step.status)}>
                 {step.label}
+              </button>
+            )}
+            {canPay && (
+              <button className="btn-primary" disabled={busy} onClick={() => onPay(order)}>
+                <Wallet size={16} /> ชำระเงิน
+              </button>
+            )}
+            {order.paymentStatus === 'paid' && (
+              <button className="btn-primary" onClick={() => openReceipt(order.id)}>
+                <Printer size={16} /> พิมพ์ใบเสร็จ
               </button>
             )}
           </div>
@@ -296,6 +324,18 @@ function OrderDetailModal({ order, busy, onClose, onChangeStatus }) {
         )}
         <div className="flex justify-between text-base font-semibold"><dt>ยอดสุทธิ</dt><dd className="text-primary-800 tabular-nums">{formatCurrency(order.total)}</dd></div>
       </dl>
+
+      {order.payment && (
+        <dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-1 rounded-lg bg-primary-50 px-3 py-2 text-sm sm:grid-cols-4">
+          <div><dt className="text-xs text-slate-500">ชำระโดย</dt><dd>{METHOD_LABEL[order.payment.method]}</dd></div>
+          <div><dt className="text-xs text-slate-500">รับเงิน</dt><dd className="tabular-nums">{formatCurrency(order.payment.receivedAmount)}</dd></div>
+          <div><dt className="text-xs text-slate-500">เงินทอน</dt><dd className="tabular-nums">{formatCurrency(order.payment.changeAmount)}</dd></div>
+          <div><dt className="text-xs text-slate-500">ผู้รับเงิน</dt><dd>{order.payment.receivedByName || '-'}</dd></div>
+          {order.payment.referenceNo && (
+            <div className="col-span-2"><dt className="text-xs text-slate-500">เลขอ้างอิง</dt><dd>{order.payment.referenceNo}</dd></div>
+          )}
+        </dl>
+      )}
 
       {order.note && <p className="mt-3 rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-900">หมายเหตุ: {order.note}</p>}
 

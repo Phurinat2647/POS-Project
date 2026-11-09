@@ -8,7 +8,8 @@ router.use('/menus', require('./menu.routes'));
 router.use('/menu-options', require('./menuOption.routes'));
 router.use('/pos', require('./pos.routes'));
 router.use('/orders', require('./order.routes'));
-
-// Phase 4+: payments, ingredients, reports
+router.use('/settings', require('./settings.routes'));
+router.use('/ingredients', require('./inventory.routes'));
+router.use('/reports', require('./report.routes'));
 
 module.exports = router;

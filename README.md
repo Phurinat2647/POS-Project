@@ -2,8 +2,8 @@
 
 ระบบบริหารจัดการร้านอาหารตามสั่ง (POS) — React + Vite + Tailwind CSS / Node.js + Express / MySQL
 
-> **สถานะปัจจุบัน: Phase 1–3 เสร็จ** (โครงสร้าง + ฐานข้อมูล, Authentication, Dashboard, จัดการเมนู/หมวดหมู่/ตัวเลือก, POS, ออเดอร์, หน้าจอครัว Real-time)
-> Phase 4–5 (ชำระเงิน + ใบเสร็จ, คลังวัตถุดิบ, รายงาน, ทดสอบระบบ) **ยังไม่ได้พัฒนา** ดูตาราง [ความคืบหน้า](#ความคืบหน้า) ด้านล่าง
+> **สถานะปัจจุบัน: Phase 1–4 เสร็จ** (โครงสร้าง + ฐานข้อมูล, Authentication, Dashboard, จัดการเมนู/หมวดหมู่/ตัวเลือก, POS, ออเดอร์, หน้าจอครัว Real-time, ชำระเงิน + ใบเสร็จ, คลังวัตถุดิบ, รายงานยอดขาย)
+> Phase 5 (ทดสอบระบบทั้งหมด) **ยังไม่ได้ทำ** ดูตาราง [ความคืบหน้า](#ความคืบหน้า) ด้านล่าง
 
 ---
 
@@ -30,7 +30,7 @@ Project/
 │   │   ├── controllers/
 │   │   ├── models/
 │   │   ├── config/             # env, database, socket.io, upload (multer รูปเมนู)
-│   │   ├── routes/             # health, auth, dashboard, categories, menus, menu-options, pos, orders
+│   │   ├── routes/             # health, auth, dashboard, categories, menus, menu-options, pos, orders, settings, ingredients, reports
 │   │   ├── middlewares/        # error handler, 404, auth (authenticate/authorize), loginLimiter
 │   │   ├── services/
 │   │   ├── utils/              # ApiError, asyncHandler, money (สตางค์), jwt, validate
@@ -101,12 +101,14 @@ npm run preview      # ทดลองเปิดไฟล์ที่ build �
 |---|---|---|---|
 | Dashboard (`/`) | ✅ | ✅ | — (เข้าหน้าครัวแทน) |
 | ขายหน้าร้าน POS (`/pos`) | ✅ | ✅ | — |
-| ออเดอร์ (`/orders`) | ดู/เปลี่ยนสถานะ/ยกเลิก | ดู/เปลี่ยนสถานะ/ยกเลิก | — |
+| ออเดอร์ (`/orders`) | ดู/เปลี่ยนสถานะ/ยกเลิก/ชำระเงิน/พิมพ์ใบเสร็จ | ดู/เปลี่ยนสถานะ/ยกเลิก/ชำระเงิน/พิมพ์ใบเสร็จ | — |
 | ครัว (`/kitchen`) | ✅ | ✅ | เริ่มทำ/เสร็จแล้ว (ยกเลิกไม่ได้) |
+| คลังวัตถุดิบ (`/inventory`) | เพิ่ม/แก้ไข/ลบ + รับเข้า/เบิก/ปรับยอด | — | รับเข้า/เบิก/ปรับยอด |
+| รายงานยอดขาย (`/reports`), ตั้งค่าร้าน (`/settings`) | ✅ | — | — |
 | เมนูอาหาร (`/menus`) | เพิ่ม/แก้ไข/ลบ/อัปโหลดรูป | ตั้งพร้อมขาย/หมด | ตั้งพร้อมขาย/หมด |
 | หมวดหมู่ (`/categories`), ตัวเลือกเมนู (`/menu-options`), สถานะระบบ (`/system-status`) | ✅ | — | — |
 
-> Dashboard อ่านยอดขายจากออเดอร์ที่ **ชำระเงินแล้ว** — ยอดขายจะยังเป็น 0 จนกว่าจะมีระบบรับชำระเงิน (Phase 4) ส่วนจำนวนออเดอร์วันนี้แสดงได้แล้ว
+> ยอดขาย (Dashboard / รายงาน) นับเฉพาะออเดอร์ที่ **ชำระเงินแล้ว** ตามวันที่ชำระ
 
 ### การทำงานของ POS → ครัว
 1. แคชเชียร์เลือกเมนูที่หน้า `/pos` (เลือกขนาด/ท็อปปิ้ง/หมายเหตุ/จำนวน) → กด **ส่งออเดอร์เข้าครัว**
@@ -114,6 +116,18 @@ npm run preview      # ทดลองเปิดไฟล์ที่ build �
 3. Socket.IO ส่ง `order:created` → หน้าครัวแสดงการ์ดใหม่ทันที (มีเสียงแจ้งเตือน เปิด/ปิดได้)
 4. ครัวกด **เริ่มทำ** → **เสร็จแล้ว** (`order:updated`) → หน้าออเดอร์ / Dashboard ของทุกเครื่องอัปเดตเอง
 5. เมนูที่ถูกตั้งเป็น "หมด" (`menu:updated`) จะกดไม่ได้ในหน้า POS ทันที
+
+### การชำระเงิน
+- ชำระได้ทันทีหลังส่งออเดอร์ (ปุ่ม **ชำระเงินเลย**) หรือภายหลังจากหน้า **ออเดอร์**
+- ใส่ส่วนลดเป็นบาทหรือ % ได้ (admin และ cashier) — Backend คำนวณยอดใหม่จาก `subtotal` ใน DB
+- **เงินสด**: กรอก/กดปุ่มลัดจำนวนเงิน ระบบแสดงเงินทอน, **PromptPay**: แสดง QR ตามยอด (จากเลข PromptPay ใน "ตั้งค่าร้าน") — ระบบไม่ได้ตรวจยอดโอนอัตโนมัติ ผู้รับเงินต้องตรวจก่อนกดยืนยัน
+- ใบเสร็จขนาด 80mm เปิดในแท็บใหม่ (`/orders/:id/receipt`) แล้วสั่งพิมพ์จากเบราว์เซอร์
+- ไม่คิด VAT, 1 ออเดอร์ชำระได้ครั้งเดียว, ออเดอร์ที่ชำระแล้วยกเลิกไม่ได้
+
+### คลังวัตถุดิบ
+- **รับเข้า** (บันทึกต้นทุนล่าสุดได้), **เบิกออก** (ห้ามเกินคงเหลือ), **ปรับยอด** (กรอกยอดที่นับได้จริง)
+- ยอดคงเหลือเปลี่ยนได้ผ่าน 3 รายการนี้เท่านั้น — ทุกครั้งบันทึกใน `inventory_transactions` พร้อม `balance_after` และผู้ทำรายการ
+- ยังไม่ตัดสต็อกอัตโนมัติจากการขาย (ตาราง `menu_ingredients` เตรียมไว้สำหรับอนาคต)
 
 ## บัญชีทดสอบเริ่มต้น
 
@@ -178,6 +192,14 @@ npm run preview      # ทดลองเปิดไฟล์ที่ build �
 | GET | `/api/orders/kitchen` | ทุก role — `{ active (pending+preparing เก่าสุดก่อน), recentCompleted (เสร็จวันนี้ 12 รายการล่าสุด) }` |
 | GET | `/api/orders/:id` | ทุก role — ออเดอร์ + `items[].options` (อ่านจาก snapshot) |
 | PATCH | `/api/orders/:id/status` | `{ status: preparing|completed|cancelled }` ลำดับ pending → preparing → completed, ยกเลิกได้ก่อนเสร็จ (admin/cashier เท่านั้น และต้องยังไม่ชำระเงิน) — ข้ามขั้น/กดซ้ำ → 409 |
+| POST | `/api/orders/:id/payment` | admin, cashier — `{ method: cash|promptpay, receivedAmount (cash), referenceNo? (promptpay), discount?: { type: amount|percent, value } }` ชำระซ้ำ/ออเดอร์ยกเลิก → 409, เงินไม่พอ → 400 |
+| GET | `/api/orders/:id/receipt` | admin, cashier — `{ shop, order }` (เฉพาะออเดอร์ที่ชำระแล้ว) |
+| GET / PUT | `/api/settings` | GET: admin, cashier / PUT: admin — `{ shopName, shopAddress, shopPhone, taxId, promptpayId, receiptFooter }` |
+| GET | `/api/ingredients` | admin, kitchen — `?search=&lowOnly=1&includeInactive=1` (includeInactive เฉพาะ admin) |
+| POST / PUT / DELETE | `/api/ingredients[/:id]` | admin — `{ name, unit, quantity (ตอนสร้าง), minQuantity, costPerUnit, isActive }` ลบตัวที่มีประวัติ → ปิดใช้งานแทน |
+| POST | `/api/ingredients/:id/transactions` | admin, kitchen — `{ type: in|out|adjust, quantity (in/out), newBalance (adjust), unitCost? (in), note? }` |
+| GET | `/api/ingredients/transactions` | admin, kitchen — `?ingredientId=&type=&page=&pageSize=` ประวัติการเคลื่อนไหว |
+| GET | `/api/reports/sales` | admin — `?from=YYYY-MM-DD&to=YYYY-MM-DD` (ไม่เกิน 366 วัน) สรุป, รายวัน, รายชั่วโมง, วิธีชำระ, รายเมนู, รายหมวด, รายการบิล |
 
 การยืนยันตัวตน:
 - JWT (HS256) อายุตาม `JWT_EXPIRES_IN` — middleware `authenticate` โหลดผู้ใช้จาก DB ทุก request ผู้ใช้ที่ถูกปิด (`is_active = 0`) จะใช้ token เดิมไม่ได้ทันที
@@ -189,7 +211,7 @@ Socket.IO events (Server → Client, ส่งหลัง commit แล้ว�
 | Event | Payload | เมื่อ |
 |---|---|---|
 | `order:created` | `{ order }` | สร้างออเดอร์ใหม่ |
-| `order:updated` | `{ order }` | เปลี่ยนสถานะออเดอร์ |
+| `order:updated` | `{ order }` | เปลี่ยนสถานะออเดอร์ / ชำระเงิน |
 | `menu:updated` | `{ menu }` | ตั้งเมนูพร้อมขาย/หมด |
 
 ## ความคืบหน้า
@@ -199,12 +221,15 @@ Socket.IO events (Server → Client, ส่งหลัง commit แล้ว�
 | 1 | โครงสร้างโปรเจกต์, ตั้งค่า Frontend/Backend, เชื่อมต่อ MySQL, Schema, Seed Data | ✅ เสร็จ |
 | 2 | Authentication (JWT + Role), Dashboard, จัดการเมนู/หมวดหมู่/ตัวเลือกเมนู | ✅ เสร็จ |
 | 3 | POS, Order Management, Kitchen (Socket.IO) | ✅ เสร็จ |
-| 4 | Payment + ใบเสร็จ, Inventory, Sales Report | ⏳ ยังไม่ได้พัฒนา |
+| 4 | Payment + ใบเสร็จ, Inventory, Sales Report | ✅ เสร็จ |
 | 5 | ทดสอบระบบ / API / Responsive | ⏳ ยังไม่ได้พัฒนา |
 
 หมายเหตุทางเทคนิค:
 - ใช้ `bcryptjs` (pure JavaScript, API เดียวกับ `bcrypt`) เพื่อไม่ต้อง compile native module บน Windows
-- ใช้ `mysql2/promise` (ไม่ใช้ ORM) พร้อม helper `withTransaction()` ใน `backend/src/config/database.js` (ใช้กับการสร้างออเดอร์/เปลี่ยนสถานะแล้ว และจะใช้กับการชำระเงินใน Phase 4)
+- ใช้ `mysql2/promise` (ไม่ใช้ ORM) พร้อม helper `withTransaction()` ใน `backend/src/config/database.js` (สร้างออเดอร์, เปลี่ยนสถานะ, ชำระเงิน, รายการสต็อก)
 - เลขออเดอร์รันใหม่ทุกวันจาก `order_sequences` — แถวของวันนั้นถูก lock ใน transaction จึงไม่ซ้ำแม้สร้างพร้อมกันหลายเครื่อง
 - เปลี่ยนสถานะออเดอร์ใช้ `SELECT ... FOR UPDATE` กันการกดพร้อมกันจากหลายเครื่อง
-- ยังไม่มี: แก้ไขรายการในออเดอร์ที่ส่งแล้ว, ส่วนลด (คอลัมน์ `discount` เป็น 0 — มาพร้อม Phase 4), เหตุผลการยกเลิก
+- ชำระเงินและรายการสต็อกใช้ `SELECT ... FOR UPDATE` — ชำระพร้อมกัน 2 เครื่องสำเร็จแค่ครั้งเดียว, เบิกพร้อมกันไม่ทำให้ยอดติดลบ
+- ปริมาณวัตถุดิบคำนวณเป็นหน่วย 1/1000 (integer) เพื่อเลี่ยงปัญหาทศนิยม
+- QR PromptPay สร้างที่ Frontend (`utils/promptpay.js`, มาตรฐาน EMVCo + CRC16) — **ควรทดลองสแกนด้วยแอปธนาคารก่อนใช้งานจริง**
+- ยังไม่มี: แก้ไขรายการในออเดอร์ที่ส่งแล้ว, เหตุผลการยกเลิก, คืนเงิน/ยกเลิกบิลที่ชำระแล้ว, ตัดสต็อกอัตโนมัติจากสูตรอาหาร, VAT

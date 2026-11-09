@@ -19,7 +19,7 @@ Food POS Management System — ระบบ POS ร้านอาหารต�
 | 1 | โครงสร้างโปรเจกต์, เชื่อมต่อ MySQL, Schema, Seed | ✅ เสร็จ |
 | 2 | Auth (JWT + Role), Dashboard, จัดการเมนู/หมวดหมู่/ตัวเลือก | ✅ เสร็จ |
 | 3 | POS, Orders, Kitchen (Socket.IO) | ✅ เสร็จ |
-| 4 | Payment + ใบเสร็จ, Inventory, Sales Report | ⏳ |
+| 4 | Payment + ใบเสร็จ, Inventory, Sales Report | ✅ เสร็จ |
 | 5 | ทดสอบระบบ / API / Responsive | ⏳ |
 
 เมื่อจบแต่ละ Phase ให้อัปเดตตารางนี้และตาราง "ความคืบหน้า" ใน `README.md`
@@ -44,6 +44,7 @@ npm run build               # ใช้ตรวจว่าโค้ดคอ�
 ```
 
 ตรวจ syntax ของ backend: `node --check <file>` / ทดสอบ API ด้วย `curl` หลังรันเซิร์ฟเวอร์
+ทดสอบบน DB จริงแล้ว ให้ `mysqldump` ตารางที่จะถูกแก้ไว้ก่อน และ restore หลังทดสอบ (ไม่ทิ้งข้อมูลทดสอบไว้ใน DB ของผู้ใช้)
 ยังไม่มี test framework หรือ linter
 
 บัญชีทดสอบ: `admin/admin1234`, `cashier/cashier1234`, `kitchen/kitchen1234`
@@ -85,6 +86,11 @@ backend/database/schema.sql, seed.sql   — แหล่งความจริ
   ใช้ `SELECT ... FOR UPDATE` ใน transaction; `TRANSITIONS` ใน backend ต้องตรงกับ `ORDER_NEXT_STEP`/`canCancelOrder` ใน `frontend/src/utils/labels.js`
 - **Socket events**: `order:created`, `order:updated` (`{ order }`), `menu:updated` (`{ menu }`) — ส่งไปทุก role
 - **Payment** — 1 ออเดอร์ชำระได้ครั้งเดียว (`UNIQUE(order_id)`), ต้องอัปเดต `orders.payment_status='paid'` และ `paid_at` ใน transaction เดียวกัน
+  (`payment.service.js`: lock ด้วย FOR UPDATE, ส่วนลด amount/percent คำนวณจาก `orders.subtotal` ใน DB, เขียน `orders.discount/total` ตอนชำระ)
+  ค่าตั้งต้นที่ผู้ใช้เลือก: ไม่คิด VAT, admin+cashier ให้ส่วนลดได้, ชำระได้ทั้งตอนส่งออเดอร์และภายหลัง
+- **สต็อก** — เปลี่ยน `ingredients.quantity` ผ่าน `inventory.service.addTransaction` เท่านั้น (FOR UPDATE, คำนวณหน่วย 1/1000)
+  `adjust` รับยอดที่นับได้ (`newBalance`) แล้วบันทึก `quantity = |ส่วนต่าง|`; ยังไม่ตัดสต็อกอัตโนมัติจากการขาย (ผู้ใช้เลือกบันทึกเอง)
+- **รายงาน/Dashboard** นับเฉพาะ `payment_status='paid'` ตาม `paid_at`
 - **ลบเมนู/ผู้ใช้ที่เคยถูกใช้งาน** ให้ soft delete ด้วย `is_active = 0`
 - **SQL ใช้ placeholder `?` เสมอ** ห้ามต่อ string จาก input ของผู้ใช้
 - **Role** มี 3 ค่า (`roles.name`): `admin`, `cashier`, `kitchen` — ตรวจสิทธิ์ทั้งที่ API (middleware) และ route ฝั่ง frontend
@@ -114,7 +120,9 @@ backend/database/schema.sql, seed.sql   — แหล่งความจริ
 - Auth: `contexts/AuthContext.jsx` (`useAuth()` → user, status, login, logout, hasRole), `components/ProtectedRoute.jsx` (`roles` prop), `layouts/MainLayout.jsx` (เพิ่มเมนู Sidebar ที่ `NAV_ITEMS`)
   API ตอบ 401 → `api.js` ล้าง token และยิง event `food-pos:unauthorized` ให้ AuthContext กลับหน้า Login
 - หน้าที่มี: `/login`, `/` (Dashboard สำหรับ admin/cashier, kitchen ถูก redirect ไป `/kitchen`), `/pos`, `/orders` (admin/cashier), `/kitchen` (ทุก role),
+  `/inventory` (admin/kitchen), `/reports` (admin, lazy), `/settings` (admin), `/orders/:id/receipt` (admin/cashier — นอก MainLayout สำหรับพิมพ์, `?print=1`),
   `/menus` (ทุก role; แก้ไขได้เฉพาะ admin), `/categories`, `/menu-options`, `/system-status` (admin), `/change-password`, `/forbidden`
+- ชำระเงิน: `components/PaymentModal.jsx` (ใช้ทั้งใน PosPage และ OrdersPage), QR จาก `utils/promptpay.js` + package `qrcode`, CSV จาก `utils/csv.js`
 - Real-time: `contexts/SocketContext.jsx` — `SocketProvider` ครอบใน `MainLayout` (ตัดการเชื่อมต่อเมื่อ logout),
   `useSocketEvent(event, handler)`, `useSocketReconnect(handler)` (โหลดข้อมูลใหม่หลังหลุด), `useSocketStatus()`
   หน้าที่ฟัง event ใช้ `load({ silent: true })` เพื่อรีเฟรชโดยไม่แสดง loading

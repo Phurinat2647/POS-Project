@@ -4,6 +4,7 @@ import Swal from 'sweetalert2';
 import { EmptyState, ErrorState, LoadingState } from '../components/States';
 import MenuItemModal, { MAX_QTY, buildLine, lineUnitSatang } from '../components/pos/MenuItemModal';
 import CartPanel from '../components/pos/CartPanel';
+import PaymentModal from '../components/PaymentModal';
 import { useSocketEvent, useSocketReconnect } from '../contexts/SocketContext';
 import { getPosCatalog } from '../services/pos.service';
 import { createOrder } from '../services/order.service';
@@ -32,6 +33,7 @@ export default function PosPage() {
   const [picking, setPicking] = useState(null); // { menu, line? }
   const [submitting, setSubmitting] = useState(false);
   const [cartOpen, setCartOpen] = useState(false);
+  const [paying, setPaying] = useState(null); // ออเดอร์ที่เพิ่งสร้างและเลือก "ชำระเงินเลย"
   const keySeq = useRef(0);
 
   const load = useCallback(async ({ silent = false } = {}) => {
@@ -140,15 +142,16 @@ export default function PosPage() {
       setLines([]);
       setForm(EMPTY_FORM);
       setCartOpen(false);
-      Swal.fire({
+      const { isConfirmed } = await Swal.fire({
         icon: 'success',
         title: `ออเดอร์ ${order.orderNo}`,
         html: `ส่งเข้าครัวแล้ว<br/>ยอดรวม <b>${formatCurrency(order.total)}</b>`,
-        confirmButtonText: 'ตกลง',
+        showCancelButton: true,
+        confirmButtonText: 'ชำระเงินเลย',
+        cancelButtonText: 'ชำระภายหลัง',
         confirmButtonColor: '#166534',
-        timer: 4000,
-        timerProgressBar: true,
       });
+      if (isConfirmed) setPaying(order);
     } catch (err) {
       showError(err.userMessage, 'ส่งออเดอร์ไม่สำเร็จ');
       load({ silent: true }); // ราคา/สถานะเมนูอาจเปลี่ยน
@@ -276,6 +279,8 @@ export default function PosPage() {
           </div>
         </div>
       )}
+
+      {paying && <PaymentModal order={paying} onClose={() => setPaying(null)} />}
 
       {picking && (
         <MenuItemModal

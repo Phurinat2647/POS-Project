@@ -45,6 +45,18 @@ const toOrder = (r) => ({
   completedAt: r.completed_at,
   cancelledAt: r.cancelled_at,
   paidAt: r.paid_at,
+  payment: r.payment_id
+    ? {
+        id: r.payment_id,
+        method: r.payment_method,
+        amount: r.payment_amount,
+        receivedAmount: r.payment_received,
+        changeAmount: r.payment_change,
+        referenceNo: r.payment_reference,
+        receivedByName: r.payment_received_by ?? null,
+        paidAt: r.paid_at,
+      }
+    : null,
 });
 
 const toItem = (r) => ({
@@ -62,9 +74,14 @@ const toItem = (r) => ({
 
 const ORDER_SELECT = `
   SELECT o.*, u.full_name AS cashier_name,
-         (SELECT COALESCE(SUM(oi.quantity), 0) FROM order_items oi WHERE oi.order_id = o.id) AS item_count
+         (SELECT COALESCE(SUM(oi.quantity), 0) FROM order_items oi WHERE oi.order_id = o.id) AS item_count,
+         p.id AS payment_id, p.method AS payment_method, p.amount AS payment_amount,
+         p.received_amount AS payment_received, p.change_amount AS payment_change,
+         p.reference_no AS payment_reference, pu.full_name AS payment_received_by
     FROM orders o
-    LEFT JOIN users u ON u.id = o.cashier_id`;
+    LEFT JOIN users u ON u.id = o.cashier_id
+    LEFT JOIN payments p ON p.order_id = o.id
+    LEFT JOIN users pu ON pu.id = p.received_by`;
 
 /** โหลดรายการอาหาร + ตัวเลือก (snapshot) ให้หลายออเดอร์ในคราวเดียว */
 async function attachItems(orders, conn = pool) {
@@ -258,7 +275,7 @@ async function create(data, cashierId) {
   return withTransaction(async (conn) => {
     const lines = await priceItems(conn, data.items);
     const subtotalSatang = lines.reduce((sum, l) => sum + l.lineSatang, 0);
-    const discountSatang = 0; // ส่วนลดจะเพิ่มพร้อมระบบชำระเงิน (Phase 4)
+    const discountSatang = 0; // ส่วนลดใส่ตอนชำระเงิน (payment.service)
     const totalSatang = subtotalSatang - discountSatang;
 
     const orderNo = await nextOrderNo(conn);
