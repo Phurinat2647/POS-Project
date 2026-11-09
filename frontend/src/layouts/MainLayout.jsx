@@ -1,24 +1,65 @@
 import { useEffect, useState } from 'react';
 import { NavLink, Outlet, useLocation } from 'react-router-dom';
-import { Activity, FolderTree, Home, KeyRound, LayoutDashboard, ListPlus, LogOut, Menu, Soup, UtensilsCrossed, X } from 'lucide-react';
+import {
+  Activity,
+  ChefHat,
+  ClipboardList,
+  FolderTree,
+  KeyRound,
+  LayoutDashboard,
+  ListPlus,
+  LogOut,
+  Menu,
+  ShoppingCart,
+  Soup,
+  UtensilsCrossed,
+  Wifi,
+  WifiOff,
+  X,
+} from 'lucide-react';
 import Swal from 'sweetalert2';
 import { useAuth } from '../contexts/AuthContext';
+import { SocketProvider, useSocketStatus } from '../contexts/SocketContext';
 import { ROLES } from '../utils/roles';
 
 /**
  * เมนูใน Sidebar — roles ว่าง = ทุก role
- * เพิ่มรายการของโมดูลใหม่ที่นี่เมื่อพัฒนาเสร็จ (Dashboard, เมนู, POS ฯลฯ)
+ * เพิ่มรายการของโมดูลใหม่ที่นี่เมื่อพัฒนาเสร็จ
  */
 const NAV_ITEMS = [
   { to: '/', label: 'Dashboard', icon: LayoutDashboard, end: true, roles: [ROLES.ADMIN, ROLES.CASHIER] },
-  { to: '/', label: 'หน้าหลัก', icon: Home, end: true, roles: [ROLES.KITCHEN] },
+  { to: '/pos', label: 'ขายหน้าร้าน (POS)', icon: ShoppingCart, roles: [ROLES.ADMIN, ROLES.CASHIER] },
+  { to: '/orders', label: 'ออเดอร์', icon: ClipboardList, roles: [ROLES.ADMIN, ROLES.CASHIER] },
+  { to: '/kitchen', label: 'ครัว', icon: ChefHat },
   { to: '/menus', label: 'เมนูอาหาร', icon: Soup },
   { to: '/categories', label: 'หมวดหมู่', icon: FolderTree, roles: [ROLES.ADMIN] },
   { to: '/menu-options', label: 'ตัวเลือกเมนู', icon: ListPlus, roles: [ROLES.ADMIN] },
   { to: '/system-status', label: 'สถานะระบบ', icon: Activity, roles: [ROLES.ADMIN] },
 ];
 
+/** สถานะการเชื่อมต่อ Real-time บน Topbar */
+function ConnectionStatus() {
+  const connected = useSocketStatus();
+  return connected ? (
+    <span className="hidden items-center gap-1.5 text-xs text-green-700 sm:flex" title="เชื่อมต่อ Real-time แล้ว">
+      <Wifi size={15} /> ออนไลน์
+    </span>
+  ) : (
+    <span className="flex items-center gap-1.5 text-xs text-danger" title="ขาดการเชื่อมต่อ Real-time — ข้อมูลอาจไม่อัปเดตอัตโนมัติ">
+      <WifiOff size={15} /> <span className="hidden sm:inline">ขาดการเชื่อมต่อ</span>
+    </span>
+  );
+}
+
 export default function MainLayout() {
+  return (
+    <SocketProvider>
+      <LayoutShell />
+    </SocketProvider>
+  );
+}
+
+function LayoutShell() {
   const { user, logout } = useAuth();
   const [open, setOpen] = useState(false);
   const location = useLocation();
@@ -91,6 +132,7 @@ export default function MainLayout() {
           </button>
           <div className="flex-1" />
           <div className="flex items-center gap-3">
+            <ConnectionStatus />
             <div className="text-right leading-tight">
               <div className="text-sm font-medium">{user.fullName}</div>
               <div className="text-xs text-slate-500">{user.roleDisplayName}</div>

@@ -6,7 +6,9 @@ router.use('/dashboard', require('./dashboard.routes'));
 router.use('/categories', require('./category.routes'));
 router.use('/menus', require('./menu.routes'));
 router.use('/menu-options', require('./menuOption.routes'));
+router.use('/pos', require('./pos.routes'));
+router.use('/orders', require('./order.routes'));
 
-// Phase 3+: orders, kitchen, payments, ingredients, reports
+// Phase 4+: payments, ingredients, reports
 
 module.exports = router;

@@ -18,7 +18,7 @@ Food POS Management System — ระบบ POS ร้านอาหารต�
 |---|---|---|
 | 1 | โครงสร้างโปรเจกต์, เชื่อมต่อ MySQL, Schema, Seed | ✅ เสร็จ |
 | 2 | Auth (JWT + Role), Dashboard, จัดการเมนู/หมวดหมู่/ตัวเลือก | ✅ เสร็จ |
-| 3 | POS, Orders, Kitchen (Socket.IO) | ⏳ |
+| 3 | POS, Orders, Kitchen (Socket.IO) | ✅ เสร็จ |
 | 4 | Payment + ใบเสร็จ, Inventory, Sales Report | ⏳ |
 | 5 | ทดสอบระบบ / API / Responsive | ⏳ |
 
@@ -52,7 +52,8 @@ npm run build               # ใช้ตรวจว่าโค้ดคอ�
 
 ```
 backend/src/
-  config/       env.js (อ่าน .env, ปิดโปรแกรมถ้า JWT_SECRET ไม่ถูกต้อง), database.js (pool + withTransaction), socket.js (JWT handshake, ห้อง role:<role>),
+  config/       env.js (อ่าน .env, ปิดโปรแกรมถ้า JWT_SECRET ไม่ถูกต้อง), database.js (pool + withTransaction),
+                socket.js (JWT handshake, ห้อง role:<role>, emitEvent(event, payload) — เรียกใน controller หลัง service commit แล้ว),
                 upload.js (multer รูปเมนู -> uploads/menus, uploadMenuImage / removeMenuImage)
   routes/       <module>.routes.js — รวมใน routes/index.js ภายใต้ /api
   controllers/  รับ req/validate/ส่ง response — บางที่สุด
@@ -79,6 +80,10 @@ backend/database/schema.sql, seed.sql   — แหล่งความจริ
 - **Snapshot** — `order_items` เก็บ `menu_name`, `category_name`, `unit_price`, `options_price`, `line_total`; `order_item_options` เก็บชื่อ/ราคาตัวเลือก รายงานและใบเสร็จต้องอ่านจาก snapshot ไม่ join ไปที่ `menus`
 - **เลขออเดอร์** สร้างจาก `order_sequences` ภายใน transaction:
   `INSERT INTO order_sequences (seq_date,last_no) VALUES (CURDATE(),1) ON DUPLICATE KEY UPDATE last_no = LAST_INSERT_ID(last_no + 1)` รูปแบบ `YYYYMMDD-NNNN`
+  (หลัง INSERT อ่าน `last_no` กลับด้วย `SELECT ... WHERE seq_date = ?` — อย่าพึ่ง `LAST_INSERT_ID()` เพราะแถวแรกของวันไม่ได้ตั้งค่า) ดู `order.service.js`
+- **สถานะออเดอร์** — pending → preparing → completed, ยกเลิกได้จาก pending/preparing เท่านั้น (ครัวยกเลิกไม่ได้, ชำระแล้วยกเลิกไม่ได้)
+  ใช้ `SELECT ... FOR UPDATE` ใน transaction; `TRANSITIONS` ใน backend ต้องตรงกับ `ORDER_NEXT_STEP`/`canCancelOrder` ใน `frontend/src/utils/labels.js`
+- **Socket events**: `order:created`, `order:updated` (`{ order }`), `menu:updated` (`{ menu }`) — ส่งไปทุก role
 - **Payment** — 1 ออเดอร์ชำระได้ครั้งเดียว (`UNIQUE(order_id)`), ต้องอัปเดต `orders.payment_status='paid'` และ `paid_at` ใน transaction เดียวกัน
 - **ลบเมนู/ผู้ใช้ที่เคยถูกใช้งาน** ให้ soft delete ด้วย `is_active = 0`
 - **SQL ใช้ placeholder `?` เสมอ** ห้ามต่อ string จาก input ของผู้ใช้
@@ -108,8 +113,13 @@ backend/database/schema.sql, seed.sql   — แหล่งความจริ
 - Layout เป้าหมาย: Sidebar ซ้าย + Topbar + เนื้อหากลาง, Card/Table/Modal, รองรับ Desktop/Tablet/Mobile
 - Auth: `contexts/AuthContext.jsx` (`useAuth()` → user, status, login, logout, hasRole), `components/ProtectedRoute.jsx` (`roles` prop), `layouts/MainLayout.jsx` (เพิ่มเมนู Sidebar ที่ `NAV_ITEMS`)
   API ตอบ 401 → `api.js` ล้าง token และยิง event `food-pos:unauthorized` ให้ AuthContext กลับหน้า Login
-- หน้าที่มี: `/login`, `/` (Dashboard สำหรับ admin/cashier, HomePage สำหรับ kitchen), `/menus` (ทุก role; แก้ไขได้เฉพาะ admin), `/categories`, `/menu-options`, `/system-status` (admin), `/change-password`, `/forbidden`
-- คอมโพเนนต์กลาง: `Modal`, `PageHeader`, `States` (LoadingState/ErrorState/EmptyState), `utils/alert.js` (confirmDelete/toastSuccess/showError), `utils/labels.js` (ป้ายสถานะ)
+- หน้าที่มี: `/login`, `/` (Dashboard สำหรับ admin/cashier, kitchen ถูก redirect ไป `/kitchen`), `/pos`, `/orders` (admin/cashier), `/kitchen` (ทุก role),
+  `/menus` (ทุก role; แก้ไขได้เฉพาะ admin), `/categories`, `/menu-options`, `/system-status` (admin), `/change-password`, `/forbidden`
+- Real-time: `contexts/SocketContext.jsx` — `SocketProvider` ครอบใน `MainLayout` (ตัดการเชื่อมต่อเมื่อ logout),
+  `useSocketEvent(event, handler)`, `useSocketReconnect(handler)` (โหลดข้อมูลใหม่หลังหลุด), `useSocketStatus()`
+  หน้าที่ฟัง event ใช้ `load({ silent: true })` เพื่อรีเฟรชโดยไม่แสดง loading
+- คอมโพเนนต์กลาง: `Modal`, `PageHeader`, `States` (LoadingState/ErrorState/EmptyState), `OrderItems` (รายการอาหาร+ตัวเลือก+หมายเหตุ), `pos/MenuItemModal`, `pos/CartPanel`,
+  `utils/alert.js` (confirmDelete/toastSuccess/showError), `utils/labels.js` (ป้ายสถานะ), `utils/money.js` (สตางค์ — ยอดฝั่ง frontend เป็นแค่ประมาณการ)
 - คลาส Tailwind เพิ่มเติม: `input`, `label`, `btn-danger`, `btn-icon`
 - DashboardPage โหลดแบบ `lazy()` เพราะ Recharts ใหญ่
 

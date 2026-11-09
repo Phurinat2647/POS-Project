@@ -5,7 +5,7 @@ const { verifyToken } = require('../utils/jwt');
 let io = null;
 
 /**
- * เริ่มต้น Socket.IO (ใช้แจ้งเตือนออเดอร์ใหม่/เปลี่ยนสถานะแบบ Real-time — event จะเพิ่มใน Phase 3)
+ * เริ่มต้น Socket.IO (แจ้งเตือนออเดอร์ใหม่/เปลี่ยนสถานะแบบ Real-time — ดู emitEvent)
  * ต้องส่ง JWT มาตอนเชื่อมต่อ: io({ auth: { token } })
  * socket ที่ผ่านการยืนยันจะเข้าห้อง `role:<role>` เช่น role:kitchen
  */
@@ -46,4 +46,24 @@ function getIO() {
   return io;
 }
 
-module.exports = { initSocket, getIO };
+const STAFF_ROOMS = ['role:admin', 'role:cashier', 'role:kitchen'];
+
+/**
+ * ส่ง event ไปยังผู้ใช้ที่เข้าสู่ระบบ (ค่าเริ่มต้น: ทุก role)
+ * เรียกหลัง commit transaction แล้วเท่านั้น — ถ้าส่งไม่สำเร็จจะไม่ทำให้ request ล้มเหลว
+ *
+ * Event ที่ใช้:
+ *   order:created  { order }        ออเดอร์ใหม่
+ *   order:updated  { order }        เปลี่ยนสถานะออเดอร์
+ *   menu:updated   { menu }         เปลี่ยนสถานะพร้อมขาย/หมด
+ */
+function emitEvent(event, payload, rooms = STAFF_ROOMS) {
+  if (!io) return;
+  try {
+    io.to(rooms).emit(event, payload);
+  } catch (err) {
+    console.error(`[socket] emit ${event} failed`, err);
+  }
+}
+
+module.exports = { initSocket, getIO, emitEvent };

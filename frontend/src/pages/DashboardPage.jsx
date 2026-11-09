@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import {
   AlertTriangle,
@@ -17,6 +17,7 @@ import PageHeader from '../components/PageHeader';
 import { EmptyState, ErrorState, LoadingState } from '../components/States';
 import { getDashboardSummary } from '../services/dashboard.service';
 import { useAuth } from '../contexts/AuthContext';
+import { useSocketEvent } from '../contexts/SocketContext';
 import { ORDER_STATUS, ORDER_TYPE, PAYMENT_STATUS } from '../utils/labels';
 import {
   formatCompactBaht,
@@ -34,21 +35,32 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  const load = useCallback(async () => {
-    setLoading(true);
+  const reloadTimer = useRef(null);
+
+  const load = useCallback(async ({ silent = false } = {}) => {
+    if (!silent) setLoading(true);
     setError(null);
     try {
       setData(await getDashboardSummary());
     } catch (err) {
-      setError(err.userMessage);
+      if (!silent) setError(err.userMessage);
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   }, []);
 
   useEffect(() => {
     load();
+    return () => clearTimeout(reloadTimer.current);
   }, [load]);
+
+  // ตัวเลขออเดอร์วันนี้อัปเดตเองเมื่อมีออเดอร์ใหม่/เปลี่ยนสถานะ (รวบหลาย event เป็นครั้งเดียว)
+  const scheduleReload = () => {
+    clearTimeout(reloadTimer.current);
+    reloadTimer.current = setTimeout(() => load({ silent: true }), 1000);
+  };
+  useSocketEvent('order:created', scheduleReload);
+  useSocketEvent('order:updated', scheduleReload);
 
   return (
     <div className="mx-auto max-w-7xl">

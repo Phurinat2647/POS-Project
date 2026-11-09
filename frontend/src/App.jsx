@@ -4,13 +4,15 @@ import { AuthProvider, useAuth } from './contexts/AuthContext';
 import ProtectedRoute from './components/ProtectedRoute';
 import MainLayout from './layouts/MainLayout';
 import LoginPage from './pages/LoginPage';
-import HomePage from './pages/HomePage';
 import CategoriesPage from './pages/CategoriesPage';
 import MenusPage from './pages/MenusPage';
 import MenuOptionsPage from './pages/MenuOptionsPage';
 import ChangePasswordPage from './pages/ChangePasswordPage';
 import ForbiddenPage from './pages/ForbiddenPage';
 import SystemStatusPage from './pages/SystemStatusPage';
+import PosPage from './pages/PosPage';
+import OrdersPage from './pages/OrdersPage';
+import KitchenPage from './pages/KitchenPage';
 import FullPageLoader from './components/FullPageLoader';
 import { ROLES } from './utils/roles';
 
@@ -19,10 +21,10 @@ const DashboardPage = lazy(() => import('./pages/DashboardPage'));
 
 const { ADMIN, CASHIER, KITCHEN } = ROLES;
 
-/** หน้าแรกตาม role: admin/cashier -> Dashboard, kitchen -> หน้าต้อนรับ (หน้าครัวมาใน Phase 3) */
+/** หน้าแรกตาม role: admin/cashier -> Dashboard, kitchen -> หน้าครัว */
 function IndexPage() {
   const { user } = useAuth();
-  if (user.role === KITCHEN) return <HomePage />;
+  if (user.role === KITCHEN) return <Navigate to="/kitchen" replace />;
   return (
     <Suspense fallback={<FullPageLoader />}>
       <DashboardPage />
@@ -45,6 +47,12 @@ export default function App() {
 
               <Route element={<ProtectedRoute roles={[ADMIN, CASHIER, KITCHEN]} />}>
                 <Route path="menus" element={<MenusPage />} />
+                <Route path="kitchen" element={<KitchenPage />} />
+              </Route>
+
+              <Route element={<ProtectedRoute roles={[ADMIN, CASHIER]} />}>
+                <Route path="pos" element={<PosPage />} />
+                <Route path="orders" element={<OrdersPage />} />
               </Route>
 
               <Route element={<ProtectedRoute roles={[ADMIN]} />}>

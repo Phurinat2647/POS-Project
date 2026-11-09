@@ -1,6 +1,7 @@
 const v = require('../utils/validate');
 const service = require('../services/menu.service');
 const { menuImageUrl, removeMenuImage } = require('../config/upload');
+const { emitEvent } = require('../config/socket');
 
 const STATUSES = ['available', 'sold_out'];
 
@@ -61,6 +62,7 @@ async function update(req, res) {
 async function updateStatus(req, res) {
   const status = v.oneOf(req.body?.status, STATUSES, 'สถานะ');
   const data = await service.updateStatus(v.id(req.params.id), status);
+  emitEvent('menu:updated', { menu: data }); // หน้า POS อัปเดตเมนูที่หมดทันที
   res.json({ success: true, data, message: status === 'available' ? 'เปิดขายเมนูแล้ว' : 'ตั้งเป็นเมนูหมดแล้ว' });
 }
 

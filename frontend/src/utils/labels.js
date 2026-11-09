@@ -19,6 +19,16 @@ export const PAYMENT_STATUS = {
 
 export const ORDER_TYPE = { dine_in: 'ทานที่ร้าน', takeaway: 'กลับบ้าน' };
 
+/** ขั้นถัดไปของออเดอร์ในครัว (ตรงกับ TRANSITIONS ใน backend order.service) */
+export const ORDER_NEXT_STEP = {
+  pending: { status: 'preparing', label: 'เริ่มทำ' },
+  preparing: { status: 'completed', label: 'เสร็จแล้ว' },
+};
+
+/** ยกเลิกได้เฉพาะก่อนเสร็จและยังไม่ชำระเงิน (ครัวยกเลิกไม่ได้) */
+export const canCancelOrder = (order) =>
+  ['pending', 'preparing'].includes(order.status) && order.paymentStatus === 'unpaid';
+
 export const OPTION_TYPE = {
   size: { label: 'ขนาด', hint: 'เลือกได้ 1 อย่าง', className: 'bg-indigo-100 text-indigo-800' },
   topping: { label: 'ท็อปปิ้ง', hint: 'เลือกได้หลายอย่าง', className: 'bg-orange-100 text-orange-800' },
