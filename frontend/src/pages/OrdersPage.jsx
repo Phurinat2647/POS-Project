@@ -157,7 +157,7 @@ export default function OrdersPage() {
           <>
             {/* Desktop / Tablet */}
             <div className="hidden overflow-x-auto md:block">
-              <table className="w-full text-sm">
+              <table className="w-full whitespace-nowrap text-sm">
                 <thead className="bg-slate-50 text-left text-slate-500">
                   <tr>
                     <th className="px-4 py-3 font-medium">เลขออเดอร์</th>

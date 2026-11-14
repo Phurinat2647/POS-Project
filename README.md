@@ -2,8 +2,8 @@
 
 ระบบบริหารจัดการร้านอาหารตามสั่ง (POS) — React + Vite + Tailwind CSS / Node.js + Express / MySQL
 
-> **สถานะปัจจุบัน: Phase 1–4 เสร็จ** (โครงสร้าง + ฐานข้อมูล, Authentication, Dashboard, จัดการเมนู/หมวดหมู่/ตัวเลือก, POS, ออเดอร์, หน้าจอครัว Real-time, ชำระเงิน + ใบเสร็จ, คลังวัตถุดิบ, รายงานยอดขาย)
-> Phase 5 (ทดสอบระบบทั้งหมด) **ยังไม่ได้ทำ** ดูตาราง [ความคืบหน้า](#ความคืบหน้า) ด้านล่าง
+> **สถานะปัจจุบัน: Phase 1–5 เสร็จ** (โครงสร้าง + ฐานข้อมูล, Authentication, Dashboard, จัดการเมนู/หมวดหมู่/ตัวเลือก, POS, ออเดอร์, หน้าจอครัว Real-time, ชำระเงิน + ใบเสร็จ, คลังวัตถุดิบ, รายงานยอดขาย, ทดสอบระบบ)
+> ทดสอบแล้ว: API อัตโนมัติ 122 เคส + Responsive 54 หน้าจอ ดูหัวข้อ [การทดสอบ](#การทดสอบ)
 
 ---
 
@@ -129,6 +129,40 @@ npm run preview      # ทดลองเปิดไฟล์ที่ build �
 - ยอดคงเหลือเปลี่ยนได้ผ่าน 3 รายการนี้เท่านั้น — ทุกครั้งบันทึกใน `inventory_transactions` พร้อม `balance_after` และผู้ทำรายการ
 - ยังไม่ตัดสต็อกอัตโนมัติจากการขาย (ตาราง `menu_ingredients` เตรียมไว้สำหรับอนาคต)
 
+## การทดสอบ
+
+### API (backend) — `npm test`
+
+```bash
+cd backend
+npm test
+```
+
+- ใช้ `node:test` ที่มากับ Node (ไม่ต้องติดตั้ง test framework) + `socket.io-client` สำหรับทดสอบ Real-time
+- รันบน **ฐานข้อมูลแยก `food_pos_test`** ซึ่งถูกสร้างใหม่ (schema + seed) ทุกไฟล์ทดสอบ — ข้อมูลใน `food_pos` ไม่ถูกแตะ
+  (เปลี่ยนชื่อได้ด้วย `TEST_DB_NAME` แต่ต้องลงท้ายด้วย `_test` ไม่เช่นนั้นจะไม่ยอมรัน)
+- ต้องเปิด MySQL ก่อน แต่ไม่ต้องรันเซิร์ฟเวอร์ (เทสต์เปิด Express + Socket.IO บนพอร์ตสุ่มเอง)
+
+| ไฟล์ | ครอบคลุม |
+|---|---|
+| `tests/auth.test.js` | health, login / ล็อกหลังผิด 5 ครั้ง, token, เปลี่ยนรหัสผ่าน, ตารางสิทธิ์ 3 role × 16 endpoint |
+| `tests/orders.test.js` | ราคาคำนวณที่ backend (ไม่เชื่อราคาจาก client), ขนาดเริ่มต้น, ตัวเลือกผิดเมนู, เมนูหมด, snapshot, soft delete, เลขออเดอร์ไม่ซ้ำเมื่อสร้างพร้อมกัน, สถานะ + สิทธิ์ครัว, ชำระเงิน / ส่วนลด / เงินทอน, ชำระพร้อมกันสำเร็จครั้งเดียว, ใบเสร็จ, รายงาน / Dashboard ตรงกับ DB, Socket events |
+| `tests/catalog.test.js` | หมวดหมู่, เมนู (JSON + multipart, ไฟล์ผิดประเภท), ตัวเลือกเมนู 3 ขอบเขต, ตั้งค่าร้าน (PromptPay / เลขภาษี), คลังวัตถุดิบ (ทศนิยม 3 ตำแหน่ง, เบิกเกิน, ปรับยอด, เบิกพร้อมกันไม่ติดลบ, soft delete) |
+
+### Responsive (frontend) — `scripts/responsive-check.mjs`
+
+เปิด Chrome/Edge แบบ headless ผ่าน DevTools Protocol (ไม่ต้องติดตั้ง package เพิ่ม) ล็อกอินทั้ง 3 role แล้วเปิดทุกหน้าที่ role นั้นเข้าได้ที่ความกว้าง 375 / 768 / 1366px
+ตรวจว่าโหลดข้อมูลเสร็จ, ไม่มีการเลื่อนแนวนอนทั้งหน้า, ไม่มีข้อความ error และไม่มี console error
+
+```bash
+# 1) backend กับฐานข้อมูลทดสอบ (หลังรัน npm test แล้ว)
+cd backend && DB_NAME=food_pos_test npm start     # PowerShell: $env:DB_NAME='food_pos_test'; npm start
+# 2) frontend
+cd frontend && npm run dev
+# 3) ตรวจ (เพิ่ม --shots <โฟลเดอร์> เพื่อบันทึกภาพหน้าจอ)
+cd frontend && node scripts/responsive-check.mjs
+```
+
 ## บัญชีทดสอบเริ่มต้น
 
 รหัสผ่านถูกเก็บเป็น **bcrypt hash** ในฐานข้อมูล (ไม่มีรหัสผ่านจริงในตาราง)
@@ -222,7 +256,7 @@ Socket.IO events (Server → Client, ส่งหลัง commit แล้ว�
 | 2 | Authentication (JWT + Role), Dashboard, จัดการเมนู/หมวดหมู่/ตัวเลือกเมนู | ✅ เสร็จ |
 | 3 | POS, Order Management, Kitchen (Socket.IO) | ✅ เสร็จ |
 | 4 | Payment + ใบเสร็จ, Inventory, Sales Report | ✅ เสร็จ |
-| 5 | ทดสอบระบบ / API / Responsive | ⏳ ยังไม่ได้พัฒนา |
+| 5 | ทดสอบระบบ / API / Responsive | ✅ เสร็จ |
 
 หมายเหตุทางเทคนิค:
 - ใช้ `bcryptjs` (pure JavaScript, API เดียวกับ `bcrypt`) เพื่อไม่ต้อง compile native module บน Windows

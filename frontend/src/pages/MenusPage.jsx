@@ -190,7 +190,7 @@ function MenuCard({ menu, isAdmin, busy, onToggle, onEdit, onDelete }) {
           <button
             onClick={onToggle}
             disabled={busy}
-            className={`btn flex-1 px-2 py-1.5 text-xs ${soldOut ? 'bg-primary-50 text-primary-800 hover:bg-primary-100' : 'bg-red-50 text-red-700 hover:bg-red-100'}`}
+            className={`btn flex-1 whitespace-nowrap px-2 py-1.5 text-xs ${soldOut ? 'bg-primary-50 text-primary-800 hover:bg-primary-100' : 'bg-red-50 text-red-700 hover:bg-red-100'}`}
           >
             {soldOut ? 'เปิดขาย' : 'ตั้งเป็นหมด'}
           </button>
