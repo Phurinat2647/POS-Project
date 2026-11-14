@@ -10,7 +10,8 @@
     "start": "node src/server.js",
     "db:setup": "node scripts/db-setup.js",
     "db:check": "node scripts/db-check.js",
-    "hash": "node scripts/hash-password.js"
+    "hash": "node scripts/hash-password.js",
+    "test": "node --test --test-concurrency=1 \"tests/*.test.js\""
   },
   "engines": {
     "node": ">=18"
@@ -27,6 +28,7 @@
     "socket.io": "^4.8.4"
   },
   "devDependencies": {
-    "nodemon": "^3.1.14"
+    "nodemon": "^3.1.14",
+    "socket.io-client": "^4.8.4"
   }
 }

@@ -20,7 +20,7 @@ Food POS Management System — ระบบ POS ร้านอาหารต�
 | 2 | Auth (JWT + Role), Dashboard, จัดการเมนู/หมวดหมู่/ตัวเลือก | ✅ เสร็จ |
 | 3 | POS, Orders, Kitchen (Socket.IO) | ✅ เสร็จ |
 | 4 | Payment + ใบเสร็จ, Inventory, Sales Report | ✅ เสร็จ |
-| 5 | ทดสอบระบบ / API / Responsive | ⏳ |
+| 5 | ทดสอบระบบ / API / Responsive | ✅ เสร็จ |
 
 เมื่อจบแต่ละ Phase ให้อัปเดตตารางนี้และตาราง "ความคืบหน้า" ใน `README.md`
 ห้ามบอกว่าฟีเจอร์ใช้งานได้ถ้ายังไม่ได้เชื่อมต่อ API/DB จริงและทดสอบแล้ว
@@ -37,15 +37,17 @@ npm run db:setup            # ⚠️ DROP + สร้างตารางให
 npm run db:setup -- --schema-only
 npm run db:check            # จำนวนแถว + Foreign Keys + ทดสอบภาษาไทย
 npm run hash -- <password>  # สร้าง bcrypt hash
+npm test                    # ทดสอบ API (node:test) บน DB แยก food_pos_test — สร้างใหม่ทุกไฟล์ ไม่แตะ food_pos
 
 # Frontend (cd frontend)
 npm run dev                 # http://localhost:5173 (proxy /api, /uploads, /socket.io -> :5000)
 npm run build               # ใช้ตรวจว่าโค้ดคอมไพล์ผ่าน
+node scripts/responsive-check.mjs [--shots <dir>]   # Chrome headless ตรวจทุกหน้า x 375/768/1366px (ต้องรัน backend+frontend ก่อน)
 ```
 
 ตรวจ syntax ของ backend: `node --check <file>` / ทดสอบ API ด้วย `curl` หลังรันเซิร์ฟเวอร์
 ทดสอบบน DB จริงแล้ว ให้ `mysqldump` ตารางที่จะถูกแก้ไว้ก่อน และ restore หลังทดสอบ (ไม่ทิ้งข้อมูลทดสอบไว้ใน DB ของผู้ใช้)
-ยังไม่มี test framework หรือ linter
+เทสต์ API อยู่ที่ `backend/tests/*.test.js` (`helpers.js`: `startServer()` → `{ request, tokens, pool }`, DB `food_pos_test`) — เพิ่มฟีเจอร์ใหม่ให้เพิ่มเทสต์ด้วย; ยังไม่มี linter
 
 บัญชีทดสอบ: `admin/admin1234`, `cashier/cashier1234`, `kitchen/kitchen1234`
 

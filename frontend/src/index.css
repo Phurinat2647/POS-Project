@@ -57,5 +57,5 @@
   @apply mb-1 block text-sm font-medium text-slate-700;
 }
 @utility badge {
-  @apply inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-medium;
+  @apply inline-flex items-center gap-1 whitespace-nowrap rounded-full px-2.5 py-0.5 text-xs font-medium;
 }
