@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
-import { BarChart3, Download, Table2 } from 'lucide-react';
+import { BarChart3, Download, FileText, Table2 } from 'lucide-react';
 import PageHeader from '../components/PageHeader';
 import { EmptyState, ErrorState, LoadingState } from '../components/States';
 import { getSalesReport } from '../services/report.service';
@@ -91,6 +91,12 @@ export default function ReportsPage() {
       { header: 'วิธีชำระ', value: (o) => METHOD_LABEL[o.method] },
     ], data.orders);
 
+  /** เปิดหน้ารายงานสำหรับพิมพ์ในแท็บใหม่ (บันทึกเป็น PDF ผ่านหน้าต่างพิมพ์ของ browser) */
+  const openPdf = () => {
+    const q = new URLSearchParams({ from: data.range.from, to: data.range.to, print: '1' });
+    window.open(`/reports/print?${q}`, '_blank', 'noopener');
+  };
+
   const exportMenus = () =>
     downloadCsv(`sales-menus_${fileSuffix}.csv`, [
       { header: 'เมนู', value: (m) => m.name },
@@ -107,6 +113,9 @@ export default function ReportsPage() {
         actions={
           data && data.summary.bills > 0 && (
             <>
+              <button className="btn-primary" onClick={openPdf}>
+                <FileText size={16} /> รายงาน PDF
+              </button>
               <button className="btn-outline" onClick={exportBills}>
                 <Download size={16} /> รายการบิล (CSV)
               </button>

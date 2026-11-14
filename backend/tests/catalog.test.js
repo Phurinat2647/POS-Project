@@ -174,12 +174,12 @@ describe('คลังวัตถุดิบ', () => {
   let ing;
 
   test('เพิ่มวัตถุดิบ + ยอดเริ่มต้นบันทึกเป็นรายการ', async () => {
-    const res = await asAdmin('POST', '/ingredients', { name: 'น้ำปลา', unit: 'ขวด', quantity: 10, minQuantity: 3, costPerUnit: 25 });
+    const res = await asAdmin('POST', '/ingredients', { name: 'น้ำส้มสายชู', unit: 'ขวด', quantity: 10, minQuantity: 3, costPerUnit: 25 });
     assert.equal(res.status, 201, JSON.stringify(res.body));
     ing = res.body.data;
     assert.equal(ing.quantity, 10);
 
-    const dup = await asAdmin('POST', '/ingredients', { name: 'น้ำปลา', unit: 'ขวด' });
+    const dup = await asAdmin('POST', '/ingredients', { name: 'น้ำส้มสายชู', unit: 'ขวด' });
     assert.equal(dup.status, 409);
   });
 

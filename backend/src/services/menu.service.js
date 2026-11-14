@@ -2,6 +2,7 @@ const { pool } = require('../config/database');
 const ApiError = require('../utils/ApiError');
 const { removeMenuImage } = require('../config/upload');
 const menuOptionService = require('./menuOption.service');
+const { shortIngredients } = require('./menuAvailability.service');
 
 const toMenu = (r) => ({
   id: r.id,
@@ -12,6 +13,7 @@ const toMenu = (r) => ({
   price: r.price,
   imageUrl: r.image_url,
   status: r.status,
+  autoSoldOut: !!r.auto_sold_out, // ระบบตั้งเป็นหมดเองเพราะวัตถุดิบไม่พอ
   isActive: !!r.is_active,
   createdAt: r.created_at,
   updatedAt: r.updated_at,
@@ -72,6 +74,15 @@ async function assertNameAvailable(name, exceptId = 0) {
   }
 }
 
+/** เปิดขายได้เมื่อวัตถุดิบในสูตรพอทำอย่างน้อย 1 จาน */
+async function assertCanSell(menuId) {
+  const short = await shortIngredients(menuId);
+  if (short.length) {
+    const list = short.map((s) => `${s.name} (ต้องใช้ ${s.required} เหลือ ${s.available} ${s.unit})`).join(', ');
+    throw ApiError.badRequest(`เปิดขายไม่ได้ วัตถุดิบไม่พอ: ${list} — รับเข้าวัตถุดิบก่อน`, short);
+  }
+}
+
 async function create({ categoryId, name, description, price, status, imageUrl }) {
   await assertCategoryActive(categoryId);
   await assertNameAvailable(name);
@@ -97,8 +108,12 @@ async function update(id, { categoryId, name, description, price, status }, imag
   if (image.newUrl) imageUrl = image.newUrl;
   else if (image.remove) imageUrl = null;
 
+  // เปลี่ยนสถานะเอง -> ไม่ใช่ "หมดอัตโนมัติ" แล้ว; สถานะเดิม -> คง auto_sold_out ไว้
+  const statusChanged = status !== current.status;
+  if (statusChanged && status === 'available') await assertCanSell(id);
   await pool.query(
-    'UPDATE menus SET category_id = ?, name = ?, description = ?, price = ?, status = ?, image_url = ? WHERE id = ?',
+    `UPDATE menus SET category_id = ?, name = ?, description = ?, price = ?, status = ?, image_url = ?
+                      ${statusChanged ? ', auto_sold_out = 0' : ''} WHERE id = ?`,
     [categoryId, name, description, price, status, imageUrl, id]
   );
   if (current.imageUrl && current.imageUrl !== imageUrl) removeMenuImage(current.imageUrl);
@@ -108,7 +123,8 @@ async function update(id, { categoryId, name, description, price, status }, imag
 async function updateStatus(id, status) {
   const current = await getById(id);
   if (!current.isActive) throw ApiError.badRequest('เมนูนี้ถูกลบแล้ว');
-  await pool.query('UPDATE menus SET status = ? WHERE id = ?', [status, id]);
+  if (status === 'available') await assertCanSell(id);
+  await pool.query('UPDATE menus SET status = ?, auto_sold_out = 0 WHERE id = ?', [status, id]);
   return getById(id);
 }
 

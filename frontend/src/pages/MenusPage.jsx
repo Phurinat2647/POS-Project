@@ -1,9 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { ImageOff, ImagePlus, Pencil, Plus, Search, Trash2, X } from 'lucide-react';
+import { BookOpen, ImageOff, ImagePlus, Pencil, Plus, Search, Trash2, X } from 'lucide-react';
 import PageHeader from '../components/PageHeader';
 import Modal from '../components/Modal';
 import { EmptyState, ErrorState, LoadingState } from '../components/States';
+import RecipeModal from '../components/RecipeModal';
 import { useAuth } from '../contexts/AuthContext';
+import { useSocketEvent } from '../contexts/SocketContext';
 import { getCategories } from '../services/category.service';
 import { createMenu, deleteMenu, getMenus, updateMenu, updateMenuStatus } from '../services/menu.service';
 import { confirmDelete, showError, toastSuccess } from '../utils/alert';
@@ -24,6 +26,8 @@ export default function MenusPage() {
   const [searchInput, setSearchInput] = useState('');
   const [editing, setEditing] = useState(null);
   const [busyId, setBusyId] = useState(null);
+  const [recipeMenu, setRecipeMenu] = useState(null);
+  const canSeeRecipe = isAdmin || user.role === 'kitchen';
 
   // หน่วงการค้นหาเล็กน้อยระหว่างพิมพ์
   useEffect(() => {
@@ -48,6 +52,11 @@ export default function MenusPage() {
   useEffect(() => {
     load();
   }, [load]);
+
+  // เมนูหมด/เปิดขายอัตโนมัติตามวัตถุดิบ หรือจากเครื่องอื่น
+  useSocketEvent('menu:updated', ({ menu }) => {
+    setMenus((list) => list.map((m) => (m.id === menu.id ? { ...m, status: menu.status, autoSoldOut: menu.autoSoldOut } : m)));
+  });
 
   const toggleStatus = async (menu) => {
     const next = menu.status === 'available' ? 'sold_out' : 'available';
@@ -141,6 +150,7 @@ export default function MenusPage() {
                 onToggle={() => toggleStatus(m)}
                 onEdit={() => setEditing(m)}
                 onDelete={() => handleDelete(m)}
+                onRecipe={canSeeRecipe ? () => setRecipeMenu(m) : null}
               />
             ))}
           </div>
@@ -158,6 +168,7 @@ export default function MenusPage() {
           }}
         />
       )}
+      {recipeMenu && <RecipeModal menu={recipeMenu} readOnly={!isAdmin} onClose={() => setRecipeMenu(null)} onSaved={load} />}
     </div>
   );
 }
@@ -174,18 +185,29 @@ function MenuImage({ src, alt, className = '' }) {
   return <img src={src} alt={alt} className={`object-cover ${className}`} onError={() => setFailed(true)} loading="lazy" />;
 }
 
-function MenuCard({ menu, isAdmin, busy, onToggle, onEdit, onDelete }) {
+function MenuCard({ menu, isAdmin, busy, onToggle, onEdit, onDelete, onRecipe }) {
   const soldOut = menu.status === 'sold_out';
   return (
     <div className="card flex flex-col overflow-hidden">
       <div className="relative">
         <MenuImage src={menu.imageUrl} alt={menu.name} className={`aspect-[4/3] w-full ${soldOut ? 'grayscale' : ''}`} />
-        <span className={`badge absolute left-2 top-2 ${MENU_STATUS[menu.status].className}`}>{MENU_STATUS[menu.status].label}</span>
+        <span className={`badge absolute left-2 top-2 ${MENU_STATUS[menu.status].className}`}>
+          {MENU_STATUS[menu.status].label}
+          {soldOut && menu.autoSoldOut && ' · วัตถุดิบไม่พอ'}
+        </span>
       </div>
       <div className="flex flex-1 flex-col p-3">
         <div className="text-xs text-slate-500">{menu.categoryName}</div>
         <div className="line-clamp-2 font-medium leading-snug">{menu.name}</div>
         <div className="mt-1 font-semibold text-primary-800 tabular-nums">{formatCurrency(menu.price)}</div>
+        {onRecipe && (
+          <button
+            onClick={onRecipe}
+            className="mt-1.5 flex w-fit items-center gap-1 text-xs text-slate-500 hover:text-primary-800 hover:underline"
+          >
+            <BookOpen size={13} /> สูตรวัตถุดิบ
+          </button>
+        )}
         <div className="mt-auto flex items-center gap-1 pt-3">
           <button
             onClick={onToggle}

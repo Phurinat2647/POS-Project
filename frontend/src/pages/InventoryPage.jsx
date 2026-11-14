@@ -74,7 +74,7 @@ export default function InventoryPage() {
     <div className="mx-auto max-w-7xl">
       <PageHeader
         title="คลังวัตถุดิบ"
-        description="รับเข้า / เบิกออก / ปรับยอดตามที่นับได้จริง — ทุกรายการถูกบันทึกเป็นประวัติ"
+        description="รับเข้า / เบิกออก / ปรับยอดตามที่นับได้จริง — ออเดอร์ตัดสต็อกตามสูตรเมนูอัตโนมัติ (วัตถุดิบไม่พอ เมนูจะถูกตั้งเป็นหมด) ทุกรายการถูกบันทึกเป็นประวัติ"
         actions={
           <>
             <button className="btn-outline" onClick={() => setHistory({})}>
@@ -137,10 +137,17 @@ export default function InventoryPage() {
                   <div className="flex flex-wrap items-center gap-2">
                     <span className="font-medium">{ing.name}</span>
                     {!ing.isActive && <span className="badge bg-slate-200 text-slate-600">ปิดใช้งาน</span>}
-                    {ing.isActive && ing.isLow && (
-                      <span className="badge bg-red-100 text-red-700">
-                        <AlertTriangle size={12} /> ใกล้หมด
+                    {ing.isActive && ing.quantity <= 0 ? (
+                      <span className="badge bg-red-600 text-white" title="เมนูที่ใช้วัตถุดิบนี้จะถูกตั้งเป็นหมดจนกว่าจะรับเข้า">
+                        <AlertTriangle size={12} /> หมด
                       </span>
+                    ) : (
+                      ing.isActive &&
+                      ing.isLow && (
+                        <span className="badge bg-red-100 text-red-700">
+                          <AlertTriangle size={12} /> ใกล้หมด
+                        </span>
+                      )
                     )}
                   </div>
                   <div className="text-xs text-slate-500">
@@ -440,6 +447,11 @@ function HistoryModal({ ingredient, onClose }) {
                     <div className="flex flex-wrap items-center gap-2">
                       <span className={`badge ${s.className}`}>{s.label}</span>
                       {!ingredient && <span className="font-medium">{t.ingredientName}</span>}
+                      {t.orderNo && (
+                        <span className="badge bg-slate-100 text-slate-600" title="บันทึกอัตโนมัติจากออเดอร์">
+                          อัตโนมัติ
+                        </span>
+                      )}
                     </div>
                     <div className="mt-0.5 text-xs text-slate-500">
                       {formatDateTime(t.createdAt)} · {t.createdByName || '-'}
@@ -453,7 +465,11 @@ function HistoryModal({ ingredient, onClose }) {
                       {formatNumber(t.type === 'adjust' ? t.balanceAfter : t.quantity)} {t.unit}
                     </div>
                     <div className="text-xs text-slate-500">
-                      {t.type === 'adjust' ? `ส่วนต่าง ${formatNumber(t.quantity)}` : `คงเหลือ ${formatNumber(t.balanceAfter)}`}
+                      {t.type === 'adjust' ? (
+                        `ส่วนต่าง ${formatNumber(t.quantity)}`
+                      ) : (
+                        <span className={t.balanceAfter < 0 ? 'text-danger' : ''}>คงเหลือ {formatNumber(t.balanceAfter)}</span>
+                      )}
                     </div>
                   </div>
                 </li>

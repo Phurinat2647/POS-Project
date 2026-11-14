@@ -8,6 +8,8 @@
 const fs = require('fs');
 const path = require('path');
 const mysql = require('mysql2/promise');
+const { applyRecipes, printReport } = require('./db-recipes');
+const { sync: syncMenus } = require('../src/services/menuAvailability.service');
 require('dotenv').config({ path: path.resolve(__dirname, '../.env') });
 
 const DB_NAME = process.env.DB_NAME || 'food_pos';
@@ -40,6 +42,13 @@ function loadSql(file) {
       console.log('> Inserting seed data ...');
       await conn.query(loadSql('seed.sql'));
       console.log('  seed.sql ✔');
+      // สูตรอาหารมาตรฐาน (database/recipes.js) + วัตถุดิบที่เกี่ยวข้องพร้อมยอดตัวอย่าง
+      await conn.beginTransaction();
+      const report = await applyRecipes(conn, { replace: true, withStock: true });
+      await syncMenus(conn); // เมนูที่วัตถุดิบไม่พอ -> หมด
+      await conn.commit();
+      console.log('  recipes.js ✔');
+      printReport(report);
     }
 
     const [tables] = await conn.query(

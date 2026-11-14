@@ -82,6 +82,7 @@ CREATE TABLE `categories` (
 -- ---------------------------------------------------------------------
 -- menus : เมนูอาหาร
 --   status   : available = พร้อมขาย, sold_out = หมด
+--   auto_sold_out: 1 = ระบบตั้งเป็นหมดเองเพราะวัตถุดิบไม่พอ (เปิดขายคืนอัตโนมัติเมื่อรับเข้าวัตถุดิบ)
 --   is_active: 0 = ลบแบบ soft delete (กรณีเมนูเคยถูกขายแล้ว)
 -- ---------------------------------------------------------------------
 CREATE TABLE `menus` (
@@ -92,6 +93,7 @@ CREATE TABLE `menus` (
   `price`       DECIMAL(10,2) NOT NULL,
   `image_url`   VARCHAR(255) NULL,
   `status`      ENUM('available','sold_out') NOT NULL DEFAULT 'available',
+  `auto_sold_out` TINYINT(1) NOT NULL DEFAULT 0,
   `is_active`   TINYINT(1) NOT NULL DEFAULT 1,
   `created_at`  DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   `updated_at`  DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
@@ -260,7 +262,7 @@ CREATE TABLE `ingredients` (
   `id`            INT UNSIGNED NOT NULL AUTO_INCREMENT,
   `name`          VARCHAR(150) NOT NULL,
   `unit`          VARCHAR(20)  NOT NULL COMMENT 'หน่วยนับ เช่น กิโลกรัม กรัม ชิ้น ลิตร',
-  `quantity`      DECIMAL(12,3) NOT NULL DEFAULT 0.000 COMMENT 'จำนวนคงเหลือ',
+  `quantity`      DECIMAL(12,3) NOT NULL DEFAULT 0.000 COMMENT 'จำนวนคงเหลือ (ห้ามติดลบ — ออเดอร์ที่วัตถุดิบไม่พอจะถูกปฏิเสธ)',
   `min_quantity`  DECIMAL(12,3) NOT NULL DEFAULT 0.000 COMMENT 'จำนวนขั้นต่ำก่อนแจ้งเตือน',
   `cost_per_unit` DECIMAL(10,2) NULL,
   `is_active`     TINYINT(1) NOT NULL DEFAULT 1,
@@ -268,11 +270,11 @@ CREATE TABLE `ingredients` (
   `updated_at`    DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
   UNIQUE KEY `uq_ingredients_name` (`name`),
-  CONSTRAINT `chk_ingredients_qty` CHECK (`quantity` >= 0 AND `min_quantity` >= 0)
+  CONSTRAINT `chk_ingredients_stock` CHECK (`quantity` >= 0 AND `min_quantity` >= 0)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- ---------------------------------------------------------------------
--- menu_ingredients : สูตรอาหาร (เตรียมไว้สำหรับตัดสต็อกอัตโนมัติในอนาคต)
+-- menu_ingredients : สูตรอาหาร — ใช้ตัดสต็อกอัตโนมัติเมื่อส่งออเดอร์เข้าครัว
 -- ---------------------------------------------------------------------
 CREATE TABLE `menu_ingredients` (
   `menu_id`       INT UNSIGNED NOT NULL,
@@ -300,7 +302,7 @@ CREATE TABLE `inventory_transactions` (
   `balance_after` DECIMAL(12,3) NOT NULL,
   `unit_cost`     DECIMAL(10,2) NULL,
   `note`          VARCHAR(255) NULL,
-  `order_id`      BIGINT UNSIGNED NULL COMMENT 'สำหรับการตัดสต็อกจากออเดอร์ในอนาคต',
+  `order_id`      BIGINT UNSIGNED NULL COMMENT 'ตัดสต็อกจากออเดอร์ (out) / คืนสต็อกเมื่อยกเลิก (in)',
   `created_by`    INT UNSIGNED NULL,
   `created_at`    DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
@@ -313,7 +315,7 @@ CREATE TABLE `inventory_transactions` (
     ON UPDATE CASCADE ON DELETE SET NULL,
   CONSTRAINT `fk_inv_tx_user` FOREIGN KEY (`created_by`) REFERENCES `users` (`id`)
     ON UPDATE CASCADE ON DELETE SET NULL,
-  CONSTRAINT `chk_inv_tx_qty` CHECK (`quantity` >= 0 AND `balance_after` >= 0)
+  CONSTRAINT `chk_inv_tx_quantity` CHECK (`quantity` >= 0)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- ---------------------------------------------------------------------

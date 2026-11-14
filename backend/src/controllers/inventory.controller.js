@@ -1,5 +1,6 @@
 const v = require('../utils/validate');
 const service = require('../services/inventory.service');
+const menuAvailability = require('../services/menuAvailability.service');
 
 const TYPES = ['in', 'out', 'adjust'];
 
@@ -39,11 +40,13 @@ async function create(req, res) {
 
 async function update(req, res) {
   const data = await service.update(v.id(req.params.id), parseIngredient(req.body, { withQuantity: false }));
+  await menuAvailability.syncAndNotify(); // เปิด/ปิดใช้งานวัตถุดิบมีผลกับเมนูที่ใช้
   res.json({ success: true, data, message: 'บันทึกวัตถุดิบสำเร็จ' });
 }
 
 async function remove(req, res) {
   const { softDeleted } = await service.remove(v.id(req.params.id));
+  await menuAvailability.syncAndNotify();
   res.json({
     success: true,
     data: { softDeleted },
@@ -65,6 +68,7 @@ async function addTransaction(req, res) {
     note: v.optionalString(b.note, 'หมายเหตุ', 255),
   };
   const result = await service.addTransaction(v.id(req.params.id), data, req.user.id);
+  await menuAvailability.syncAndNotify(); // รับเข้า -> เปิดขายเมนูที่หมดเพราะวัตถุดิบคืนอัตโนมัติ
   res.status(201).json({
     success: true,
     data: result,

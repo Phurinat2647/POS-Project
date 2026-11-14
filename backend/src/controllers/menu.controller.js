@@ -1,5 +1,8 @@
 const v = require('../utils/validate');
+const ApiError = require('../utils/ApiError');
 const service = require('../services/menu.service');
+const recipeService = require('../services/recipe.service');
+const menuAvailability = require('../services/menuAvailability.service');
 const { menuImageUrl, removeMenuImage } = require('../config/upload');
 const { emitEvent } = require('../config/socket');
 
@@ -56,6 +59,7 @@ async function update(req, res) {
   const data = await withUploadedFile(req, (newUrl) =>
     service.update(id, parseBody(req.body), { newUrl, remove: v.bool(req.body?.removeImage) })
   );
+  emitEvent('menu:updated', { menu: data });
   res.json({ success: true, data, message: 'บันทึกเมนูสำเร็จ' });
 }
 
@@ -75,4 +79,42 @@ async function remove(req, res) {
   });
 }
 
-module.exports = { list, getOne, create, update, updateStatus, remove };
+const MAX_RECIPE_ITEMS = 50;
+
+async function getRecipe(req, res) {
+  res.json({ success: true, data: await recipeService.getRecipe(v.id(req.params.id)) });
+}
+
+/**
+ * PUT /menus/:id/recipe — แทนที่สูตรทั้งหมด
+ * { items: [{ ingredientId, quantity }] } หรือวัตถุดิบใหม่ที่พิมพ์เอง { name, unit, quantity }
+ */
+async function setRecipe(req, res) {
+  const raw = req.body?.items;
+  if (!Array.isArray(raw)) throw ApiError.badRequest('รายการวัตถุดิบไม่ถูกต้อง');
+  if (raw.length > MAX_RECIPE_ITEMS) throw ApiError.badRequest(`ใส่วัตถุดิบได้ไม่เกิน ${MAX_RECIPE_ITEMS} รายการ`);
+  const items = raw.map((r, i) => {
+    const label = `รายการที่ ${i + 1}`;
+    const quantity = v.quantity(r?.quantity, `ปริมาณ${label}`, { positive: true, max: 99999.999 });
+    if (r?.ingredientId !== undefined && r?.ingredientId !== null && r?.ingredientId !== '') {
+      return { ingredientId: v.id(r.ingredientId, `วัตถุดิบ${label}`), quantity };
+    }
+    return {
+      name: v.requiredString(r?.name, `ชื่อวัตถุดิบ${label}`, 150),
+      unit: v.requiredString(r?.unit, `หน่วยนับของวัตถุดิบ${label}`, 20),
+      quantity,
+    };
+  });
+  const menuId = v.id(req.params.id);
+  const data = await recipeService.setRecipe(menuId, items);
+  const { soldOut } = await menuAvailability.syncAndNotify();
+  res.json({
+    success: true,
+    data,
+    message: soldOut.includes(menuId)
+      ? 'บันทึกสูตรแล้ว — เมนูถูกตั้งเป็น "หมด" เพราะวัตถุดิบในคลังไม่พอ (รับเข้าวัตถุดิบแล้วจะเปิดขายเอง)'
+      : 'บันทึกสูตรอาหารสำเร็จ',
+  });
+}
+
+module.exports = { list, getOne, create, update, updateStatus, remove, getRecipe, setRecipe };

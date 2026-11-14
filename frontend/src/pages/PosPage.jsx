@@ -9,10 +9,23 @@ import { useSocketEvent, useSocketReconnect } from '../contexts/SocketContext';
 import { getPosCatalog } from '../services/pos.service';
 import { createOrder } from '../services/order.service';
 import { showError } from '../utils/alert';
-import { formatCurrency } from '../utils/format';
+import { formatCurrency, formatNumber } from '../utils/format';
 import { toBaht } from '../utils/money';
 
 const EMPTY_FORM = { orderType: 'dine_in', tableNo: '', note: '' };
+
+const escapeHtml = (s) =>
+  String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
+
+/** วัตถุดิบที่ถึงจุดเตือนหลังตัดสต็อก (แสดงในกล่องยืนยันออเดอร์) */
+function stockWarningHtml(warnings = []) {
+  if (!warnings.length) return '';
+  const items = warnings
+    .map((w) => `<li>${escapeHtml(w.name)} — เหลือ <b>${formatNumber(w.quantity)}</b> ${escapeHtml(w.unit)}${w.quantity <= 0 ? ' (หมด)' : ''}</li>`)
+    .join('');
+  return `<div style="margin-top:12px;padding:8px 12px;border-radius:12px;background:#fffbeb;color:#92400e;text-align:left;font-size:14px">
+    ⚠️ วัตถุดิบใกล้หมด<ul style="margin:4px 0 0 18px;list-style:disc">${items}</ul></div>`;
+}
 
 const sameLine = (a, b) =>
   a.menuId === b.menuId &&
@@ -54,7 +67,7 @@ export default function PosPage() {
 
   // เมนูหมด/เปิดขายจากเครื่องอื่น -> อัปเดตทันที
   useSocketEvent('menu:updated', ({ menu }) => {
-    setCatalog((c) => c && { ...c, menus: c.menus.map((m) => (m.id === menu.id ? { ...m, status: menu.status } : m)) });
+    setCatalog((c) => c && { ...c, menus: c.menus.map((m) => (m.id === menu.id ? { ...m, status: menu.status, autoSoldOut: menu.autoSoldOut } : m)) });
   });
   useSocketReconnect(() => load({ silent: true }));
 
@@ -145,7 +158,7 @@ export default function PosPage() {
       const { isConfirmed } = await Swal.fire({
         icon: 'success',
         title: `ออเดอร์ ${order.orderNo}`,
-        html: `ส่งเข้าครัวแล้ว<br/>ยอดรวม <b>${formatCurrency(order.total)}</b>`,
+        html: `ส่งเข้าครัวแล้ว<br/>ยอดรวม <b>${formatCurrency(order.total)}</b>${stockWarningHtml(order.stockWarnings)}`,
         showCancelButton: true,
         confirmButtonText: 'ชำระเงินเลย',
         cancelButtonText: 'ชำระภายหลัง',
@@ -238,7 +251,10 @@ export default function PosPage() {
                     )}
                     {soldOut && (
                       <div className="absolute inset-0 flex items-center justify-center bg-white/60">
-                        <span className="badge bg-red-600 px-3 py-1 text-sm text-white">หมด</span>
+                        <span className="badge flex-col gap-0 bg-red-600 px-3 py-1 text-sm text-white">
+                          หมด
+                          {m.autoSoldOut && <span className="text-[11px] font-normal">วัตถุดิบไม่พอ</span>}
+                        </span>
                       </div>
                     )}
                     {inCart > 0 && (
