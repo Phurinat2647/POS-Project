@@ -92,4 +92,24 @@ function optionalDate(value, label = 'วันที่') {
   return s;
 }
 
-module.exports = { requiredString, optionalString, money, id, optionalId, integer, bool, oneOf, quantity, optionalDate };
+/** รหัสผ่าน: อย่างน้อย 8 ตัวอักษร และไม่เกิน 72 ไบต์ (ข้อจำกัดของ bcrypt — อักษรไทย 1 ตัว = 3 ไบต์) */
+const MIN_PASSWORD_LENGTH = 8;
+function password(value, label = 'รหัสผ่าน') {
+  const s = typeof value === 'string' ? value : '';
+  if (!s) throw ApiError.badRequest(`กรุณากรอก${label}`);
+  if (s.length < MIN_PASSWORD_LENGTH) throw ApiError.badRequest(`${label}ต้องมีอย่างน้อย ${MIN_PASSWORD_LENGTH} ตัวอักษร`);
+  if (Buffer.byteLength(s, 'utf8') > 72) throw ApiError.badRequest(`${label}ยาวเกินไป`);
+  return s;
+}
+
+/** ชื่อผู้ใช้: a-z 0-9 . _ - ความยาว 3-50 (เก็บเป็นตัวพิมพ์เล็ก) */
+function username(value) {
+  const s = typeof value === 'string' ? value.trim().toLowerCase() : '';
+  if (!s) throw ApiError.badRequest('กรุณากรอกชื่อผู้ใช้');
+  if (!/^[a-z0-9._-]{3,50}$/.test(s)) {
+    throw ApiError.badRequest('ชื่อผู้ใช้ต้องเป็น a-z, 0-9, . _ - ความยาว 3-50 ตัวอักษร');
+  }
+  return s;
+}
+
+module.exports = { password, username, requiredString, optionalString, money, id, optionalId, integer, bool, oneOf, quantity, optionalDate };

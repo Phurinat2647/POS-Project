@@ -29,3 +29,9 @@ export const updateMenu = async (id, form) => (await api.put(`/menus/${id}`, toF
 export const updateMenuStatus = async (id, status) => (await api.patch(`/menus/${id}/status`, { status })).data;
 
 export const deleteMenu = async (id) => (await api.delete(`/menus/${id}`)).data;
+
+/** สูตรอาหาร: [{ ingredientId, name, unit, quantity, stock, isActive }] */
+export const getMenuRecipe = async (id) => (await api.get(`/menus/${id}/recipe`)).data.data;
+
+/** items: [{ ingredientId, quantity }] — แทนที่สูตรทั้งหมด */
+export const saveMenuRecipe = async (id, items) => (await api.put(`/menus/${id}/recipe`, { items })).data;

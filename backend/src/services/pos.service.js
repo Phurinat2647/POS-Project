@@ -10,7 +10,7 @@ async function getCatalog() {
     'SELECT id, name, sort_order FROM categories WHERE is_active = 1 ORDER BY sort_order, id'
   );
   const [menus] = await pool.query(
-    `SELECT m.id, m.category_id, m.name, m.description, m.price, m.image_url, m.status
+    `SELECT m.id, m.category_id, m.name, m.description, m.price, m.image_url, m.status, m.auto_sold_out
        FROM menus m JOIN categories c ON c.id = m.category_id
       WHERE m.is_active = 1 AND c.is_active = 1
       ORDER BY c.sort_order, c.id, m.name`
@@ -39,6 +39,7 @@ async function getCatalog() {
         price: m.price,
         imageUrl: m.image_url,
         status: m.status,
+        autoSoldOut: !!m.auto_sold_out,
         sizes: applicable.filter((o) => o.option_type === 'size').map(toOption),
         toppings: applicable.filter((o) => o.option_type === 'topping').map(toOption),
       };

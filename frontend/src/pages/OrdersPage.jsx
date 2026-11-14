@@ -85,7 +85,7 @@ export default function OrdersPage() {
     if (status === 'cancelled') {
       const { isConfirmed } = await Swal.fire({
         title: `ยกเลิกออเดอร์ ${order.orderNo}?`,
-        text: 'ยกเลิกแล้วไม่สามารถย้อนกลับได้ และครัวจะไม่เห็นออเดอร์นี้อีก',
+        text: 'ยกเลิกแล้วไม่สามารถย้อนกลับได้ ครัวจะไม่เห็นออเดอร์นี้อีก และระบบจะคืนวัตถุดิบที่ตัดไปเข้าสต็อก',
         icon: 'warning',
         showCancelButton: true,
         confirmButtonText: 'ยกเลิกออเดอร์',

@@ -16,12 +16,14 @@ import KitchenPage from './pages/KitchenPage';
 import InventoryPage from './pages/InventoryPage';
 import SettingsPage from './pages/SettingsPage';
 import ReceiptPage from './pages/ReceiptPage';
+import UsersPage from './pages/UsersPage';
 import FullPageLoader from './components/FullPageLoader';
 import { ROLES } from './utils/roles';
 
 // Dashboard ใช้ Recharts (ขนาดใหญ่) — โหลดเมื่อเปิดหน้าเท่านั้น
 const DashboardPage = lazy(() => import('./pages/DashboardPage'));
 const ReportsPage = lazy(() => import('./pages/ReportsPage'));
+const ReportPrintPage = lazy(() => import('./pages/ReportPrintPage'));
 
 const { ADMIN, CASHIER, KITCHEN } = ROLES;
 
@@ -48,6 +50,17 @@ export default function App() {
             <Route element={<ProtectedRoute roles={[ADMIN, CASHIER]} />}>
               <Route path="orders/:id/receipt" element={<ReceiptPage />} />
             </Route>
+            {/* รายงานยอดขายสำหรับพิมพ์ / บันทึกเป็น PDF */}
+            <Route element={<ProtectedRoute roles={[ADMIN]} />}>
+              <Route
+                path="reports/print"
+                element={
+                  <Suspense fallback={<FullPageLoader />}>
+                    <ReportPrintPage />
+                  </Suspense>
+                }
+              />
+            </Route>
 
             <Route element={<MainLayout />}>
               <Route index element={<IndexPage />} />
@@ -73,6 +86,7 @@ export default function App() {
                 <Route path="menu-options" element={<MenuOptionsPage />} />
                 <Route path="system-status" element={<SystemStatusPage />} />
                 <Route path="settings" element={<SettingsPage />} />
+                <Route path="users" element={<UsersPage />} />
                 <Route
                   path="reports"
                   element={

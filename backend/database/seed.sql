@@ -106,19 +106,7 @@ INSERT INTO `ingredients` (`name`, `unit`, `quantity`, `min_quantity`, `cost_per
 INSERT INTO `inventory_transactions` (`ingredient_id`, `type`, `quantity`, `balance_after`, `unit_cost`, `note`, `created_by`)
 SELECT `id`, 'in', `quantity`, `quantity`, `cost_per_unit`, 'ยอดยกมาเริ่มต้นระบบ', 1 FROM `ingredients`;
 
--- menu_ingredients (ตัวอย่างสูตร - ยังไม่ตัดสต็อกอัตโนมัติ) ----------------
-INSERT INTO `menu_ingredients` (`menu_id`, `ingredient_id`, `quantity`)
-SELECT m.id, i.id, x.qty
-FROM (
-  SELECT 'ข้าวกะเพราหมูสับ' AS menu, 'หมูสับ'   AS ing, 0.100 AS qty UNION ALL
-  SELECT 'ข้าวกะเพราหมูสับ',          'ใบกะเพรา',        0.020 UNION ALL
-  SELECT 'ข้าวกะเพราหมูสับ',          'ข้าวสาร',         0.150 UNION ALL
-  SELECT 'ข้าวไข่เจียวหมูสับ',         'ไข่ไก่',          2.000 UNION ALL
-  SELECT 'ข้าวไข่เจียวหมูสับ',         'หมูสับ',          0.050 UNION ALL
-  SELECT 'ข้าวไข่เจียวหมูสับ',         'ข้าวสาร',         0.150
-) x
-JOIN `menus` m ON m.name = x.menu
-JOIN `ingredients` i ON i.name = x.ing;
+-- menu_ingredients: สูตรอาหารมาตรฐานอยู่ที่ database/recipes.js (db:setup ใส่ให้หลังไฟล์นี้ / npm run db:recipes)
 
 -- settings ------------------------------------------------------------
 INSERT INTO `settings` (`setting_key`, `setting_value`) VALUES

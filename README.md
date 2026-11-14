@@ -2,8 +2,8 @@
 
 ระบบบริหารจัดการร้านอาหารตามสั่ง (POS) — React + Vite + Tailwind CSS / Node.js + Express / MySQL
 
-> **สถานะปัจจุบัน: Phase 1–5 เสร็จ** (โครงสร้าง + ฐานข้อมูล, Authentication, Dashboard, จัดการเมนู/หมวดหมู่/ตัวเลือก, POS, ออเดอร์, หน้าจอครัว Real-time, ชำระเงิน + ใบเสร็จ, คลังวัตถุดิบ, รายงานยอดขาย, ทดสอบระบบ)
-> ทดสอบแล้ว: API อัตโนมัติ 122 เคส + Responsive 54 หน้าจอ ดูหัวข้อ [การทดสอบ](#การทดสอบ)
+> **สถานะปัจจุบัน: Phase 1–6 เสร็จ** (โครงสร้าง + ฐานข้อมูล, Authentication, Dashboard, จัดการเมนู/หมวดหมู่/ตัวเลือก, POS, ออเดอร์, หน้าจอครัว Real-time, ชำระเงิน + ใบเสร็จ, คลังวัตถุดิบ, รายงานยอดขาย, ทดสอบระบบ, จัดการผู้ใช้, สูตรอาหาร + ตัดสต็อกอัตโนมัติ, รายงาน PDF)
+> ทดสอบแล้ว: API อัตโนมัติ 146 เคส + Responsive 57 หน้าจอ ดูหัวข้อ [การทดสอบ](#การทดสอบ) — Phase 7–8 ยังไม่ได้ทำ
 
 ---
 
@@ -74,8 +74,23 @@ npm run db:setup     # ⚠️ DROP ตารางเดิมทั้งหม
 npm run db:check     # ตรวจสอบจำนวนข้อมูลและ Foreign Keys
 ```
 
+**อัปเดตจากเวอร์ชันก่อน (มีข้อมูลอยู่แล้ว)** — ไม่ต้อง `db:setup` ใหม่ ให้ backup แล้วรัน migration (ไม่ลบข้อมูล, รันซ้ำได้):
+
+```bash
+mysqldump -u root --databases food_pos > backups/food_pos_backup.sql
+npm run db:migrate
+```
+
+**สูตรอาหารมาตรฐาน** (`database/recipes.js` — ปริมาณต่อจานอิงร้านอาหารตามสั่งทั่วไป ครบ 23 เมนูตั้งต้น):
+`db:setup` ใส่ให้อัตโนมัติ (พร้อมยอดวัตถุดิบตัวอย่าง) — สำหรับฐานข้อมูลที่มีอยู่แล้ว:
+
+```bash
+npm run db:recipes               # เพิ่มวัตถุดิบที่ขาด (คงเหลือ 0) + ใส่สูตรเฉพาะเมนูที่ยังไม่มีสูตร
+npm run db:recipes -- --replace  # แทนที่สูตรของทุกเมนูที่ชื่อตรง (สูตรที่แก้เองจะหาย — backup ก่อน)
+```
+
 > ทางเลือก: import `database/schema.sql` แล้วตามด้วย `database/seed.sql` ผ่าน phpMyAdmin หรือ
-> `mysql -u root -p < database/schema.sql && mysql -u root -p < database/seed.sql`
+> `mysql -u root -p < database/schema.sql && mysql -u root -p < database/seed.sql` (วิธีนี้จะยังไม่มีสูตรอาหาร — รัน `npm run db:recipes` ต่อ)
 
 รันเซิร์ฟเวอร์:
 
@@ -126,8 +141,25 @@ npm run preview      # ทดลองเปิดไฟล์ที่ build �
 
 ### คลังวัตถุดิบ
 - **รับเข้า** (บันทึกต้นทุนล่าสุดได้), **เบิกออก** (ห้ามเกินคงเหลือ), **ปรับยอด** (กรอกยอดที่นับได้จริง)
-- ยอดคงเหลือเปลี่ยนได้ผ่าน 3 รายการนี้เท่านั้น — ทุกครั้งบันทึกใน `inventory_transactions` พร้อม `balance_after` และผู้ทำรายการ
-- ยังไม่ตัดสต็อกอัตโนมัติจากการขาย (ตาราง `menu_ingredients` เตรียมไว้สำหรับอนาคต)
+- ทุกการเปลี่ยนยอดบันทึกใน `inventory_transactions` พร้อม `balance_after` และผู้ทำรายการ
+
+### สูตรอาหาร + ตัดสต็อกอัตโนมัติ
+- admin กำหนด **สูตรวัตถุดิบต่อ 1 จาน** ที่หน้าเมนูอาหาร → ปุ่ม "สูตรวัตถุดิบ" (ครัวเปิดดูได้อย่างเดียว)
+  พิมพ์ชื่อวัตถุดิบเองได้ (มีรายชื่อแนะนำ) — ถ้าเป็นชื่อใหม่ให้ใส่หน่วยนับ ระบบจะเพิ่มวัตถุดิบนั้นในคลัง (คงเหลือ 0) ตอนบันทึกสูตร
+- **ส่งออเดอร์เข้าครัว** → ตัดวัตถุดิบตามสูตร × จำนวน ใน transaction เดียวกับการสร้างออเดอร์ (ประวัติแสดงป้าย "อัตโนมัติ" + เลขออเดอร์)
+- ยอดวัตถุดิบ **ไม่ติดลบ** — สั่งเกินวัตถุดิบที่มี ออเดอร์ถูกปฏิเสธทั้งใบพร้อมบอกว่าวัตถุดิบไหนขาด
+- เมนูที่วัตถุดิบเหลือไม่พอทำอีก 1 จาน ถูกตั้งเป็น **"หมด · วัตถุดิบไม่พอ"** อัตโนมัติ และ **เปิดขายคืนเอง** เมื่อรับเข้า/ปรับยอดจนพอ (เมนูที่ตั้งหมดเองต้องเปิดขายเอง)
+- หน้า POS แจ้งเตือนวัตถุดิบที่ถึงจุดสั่งซื้อหลังส่งออเดอร์
+- **ยกเลิกออเดอร์** → คืนวัตถุดิบเท่าที่ตัดไปจริง (แม้จะแก้สูตรภายหลัง)
+- วัตถุดิบที่ปิดใช้งานจะไม่ถูกตัด, ยังไม่ผูกสูตรกับตัวเลือก (ไข่ดาว/พิเศษ)
+
+### จัดการผู้ใช้ (admin)
+- เพิ่ม/แก้ไขพนักงาน, เปลี่ยนตำแหน่ง, ตั้งรหัสผ่านใหม่, ปิดใช้งาน (มีผลทันที — token เดิมใช้ไม่ได้)
+- ลบผู้ใช้ที่เคยทำรายการ → ปิดใช้งานแทน (เก็บชื่อในประวัติ), แก้/ลบบัญชีตัวเองไม่ได้ และต้องเหลือผู้ดูแลระบบอย่างน้อย 1 คน
+
+### รายงาน PDF
+- หน้ารายงานยอดขาย → ปุ่ม "รายงาน PDF" เปิดรายงาน A4 ในแท็บใหม่ แล้วเลือกเครื่องพิมพ์เป็น "บันทึกเป็น PDF" (ภาษาไทยแสดงถูกต้องเพราะใช้ฟอนต์ของ browser)
+- มีสรุปยอด, แยกวิธีชำระ/หมวดหมู่, รายวัน (ถ้าเลือกหลายวัน), รายเมนู และรายการบิลทั้งหมด
 
 ## การทดสอบ
 
@@ -148,6 +180,8 @@ npm test
 | `tests/auth.test.js` | health, login / ล็อกหลังผิด 5 ครั้ง, token, เปลี่ยนรหัสผ่าน, ตารางสิทธิ์ 3 role × 16 endpoint |
 | `tests/orders.test.js` | ราคาคำนวณที่ backend (ไม่เชื่อราคาจาก client), ขนาดเริ่มต้น, ตัวเลือกผิดเมนู, เมนูหมด, snapshot, soft delete, เลขออเดอร์ไม่ซ้ำเมื่อสร้างพร้อมกัน, สถานะ + สิทธิ์ครัว, ชำระเงิน / ส่วนลด / เงินทอน, ชำระพร้อมกันสำเร็จครั้งเดียว, ใบเสร็จ, รายงาน / Dashboard ตรงกับ DB, Socket events |
 | `tests/catalog.test.js` | หมวดหมู่, เมนู (JSON + multipart, ไฟล์ผิดประเภท), ตัวเลือกเมนู 3 ขอบเขต, ตั้งค่าร้าน (PromptPay / เลขภาษี), คลังวัตถุดิบ (ทศนิยม 3 ตำแหน่ง, เบิกเกิน, ปรับยอด, เบิกพร้อมกันไม่ติดลบ, soft delete) |
+| `tests/stock.test.js` | สูตรอาหาร (สิทธิ์, ตรวจข้อมูล), ตัดสต็อกตามสูตร × จำนวน, แจ้งเตือน, วัตถุดิบไม่พอ → 409/เมนูหมดอัตโนมัติ/รับเข้าแล้วเปิดขายคืน, สั่งพร้อมกันเกินวัตถุดิบไม่ติดลบ, คืนสต็อกเมื่อยกเลิก, ไม่ตัดเมื่อออเดอร์ไม่ผ่าน, ข้ามวัตถุดิบที่ปิด, สั่งพร้อมกันยอดไม่หาย, ยอดตรงกับประวัติ |
+| `tests/users.test.js` | จัดการผู้ใช้: สิทธิ์ admin, ตรวจข้อมูล, เปลี่ยนตำแหน่ง/ปิดใช้งานมีผลทันที, รีเซ็ตรหัส, ลบจริง/soft delete, ห้ามแก้บัญชีตัวเอง |
 
 ### Responsive (frontend) — `scripts/responsive-check.mjs`
 
@@ -191,7 +225,7 @@ cd frontend && node scripts/responsive-check.mjs
 | `payments` | การชำระเงิน cash / promptpay, ยอดรับ, เงินทอน (`UNIQUE(order_id)` ป้องกันชำระซ้ำ) |
 | `ingredients` | วัตถุดิบ หน่วยนับ คงเหลือ ขั้นต่ำ |
 | `inventory_transactions` | ประวัติรับเข้า / เบิกออก / ปรับยอด พร้อม `balance_after` |
-| `menu_ingredients` | สูตรอาหาร (เตรียมไว้สำหรับตัดสต็อกอัตโนมัติในอนาคต) |
+| `menu_ingredients` | สูตรอาหาร (วัตถุดิบต่อ 1 จาน) — ใช้ตัดสต็อกอัตโนมัติเมื่อส่งออเดอร์ |
 | `settings` | ข้อมูลร้านสำหรับใบเสร็จ (ชื่อร้าน ที่อยู่ เบอร์โทร PromptPay) |
 
 หลักการสำคัญ:
@@ -221,7 +255,7 @@ cd frontend && node scripts/responsive-check.mjs
 | DELETE | `/api/menus/:id` | admin — เคยถูกขายแล้ว → soft delete (`is_active = 0`), ยังไม่เคยขาย → ลบจริงพร้อมไฟล์รูป |
 | GET / POST / PUT / DELETE | `/api/menu-options[/:id]` | admin — `{ scope: all|category|menu, categoryId?, menuId?, optionType: size|topping, name, extraPrice, isDefault, sortOrder, isActive }` ค่าเริ่มต้นของขนาดมีได้ 1 รายการต่อขอบเขต |
 | GET | `/api/pos/catalog` | admin, cashier — หมวดหมู่ + เมนู (รวมที่หมด) + `sizes` / `toppings` ของแต่ละเมนู สำหรับหน้า POS |
-| POST | `/api/orders` | admin, cashier — `{ orderType: dine_in|takeaway, tableNo?, note?, items: [{ menuId, optionIds, quantity (1-99), note? }] }` **ไม่รับราคาจาก client** — ไม่เลือกขนาดจะใช้ขนาดค่าเริ่มต้น |
+| POST | `/api/orders` | admin, cashier — `{ orderType: dine_in|takeaway, tableNo?, note?, items: [{ menuId, optionIds, quantity (1-99), note? }] }` **ไม่รับราคาจาก client** — ไม่เลือกขนาดจะใช้ขนาดค่าเริ่มต้น, ตัดสต็อกตามสูตร (วัตถุดิบไม่พอ → 409 พร้อม `details`) และคืน `stockWarnings` (วัตถุดิบที่ ≤ ขั้นต่ำ) |
 | GET | `/api/orders` | admin, cashier — `?status=pending,preparing&paymentStatus=&date=YYYY-MM-DD&search=&page=&pageSize=` → `{ orders, pagination }` |
 | GET | `/api/orders/kitchen` | ทุก role — `{ active (pending+preparing เก่าสุดก่อน), recentCompleted (เสร็จวันนี้ 12 รายการล่าสุด) }` |
 | GET | `/api/orders/:id` | ทุก role — ออเดอร์ + `items[].options` (อ่านจาก snapshot) |
@@ -233,6 +267,13 @@ cd frontend && node scripts/responsive-check.mjs
 | POST / PUT / DELETE | `/api/ingredients[/:id]` | admin — `{ name, unit, quantity (ตอนสร้าง), minQuantity, costPerUnit, isActive }` ลบตัวที่มีประวัติ → ปิดใช้งานแทน |
 | POST | `/api/ingredients/:id/transactions` | admin, kitchen — `{ type: in|out|adjust, quantity (in/out), newBalance (adjust), unitCost? (in), note? }` |
 | GET | `/api/ingredients/transactions` | admin, kitchen — `?ingredientId=&type=&page=&pageSize=` ประวัติการเคลื่อนไหว |
+| GET | `/api/menus/:id/recipe` | admin, kitchen — สูตรวัตถุดิบต่อ 1 จาน `[{ ingredientId, name, unit, quantity, stock, isActive }]` |
+| PUT | `/api/menus/:id/recipe` | admin — `{ items: [{ ingredientId, quantity }] }` แทนที่สูตรทั้งหมด (quantity > 0, ทศนิยม 3 ตำแหน่ง) — วัตถุดิบที่พิมพ์เองส่งเป็น `{ name, unit, quantity }`: ชื่อตรงกับที่มีอยู่ใช้ตัวเดิม, ไม่มีสร้างใหม่ (คงเหลือ 0) ใน transaction เดียวกัน |
+| GET | `/api/users`, `/api/users/roles` | admin — รายชื่อผู้ใช้ (รวมที่ปิดใช้งาน) / ตำแหน่งทั้งหมด |
+| POST | `/api/users` | admin — `{ username (a-z0-9._- 3-50), password (≥ 8), fullName, phone?, role }` |
+| PUT | `/api/users/:id` | admin — `{ fullName, phone, role, isActive }` (แก้ role/ปิดตัวเองไม่ได้, ต้องเหลือ admin ≥ 1) |
+| PUT | `/api/users/:id/password` | admin — `{ password }` ตั้งรหัสผ่านใหม่ให้ผู้ใช้อื่น |
+| DELETE | `/api/users/:id` | admin — มีประวัติ → ปิดใช้งาน, ไม่มี → ลบจริง |
 | GET | `/api/reports/sales` | admin — `?from=YYYY-MM-DD&to=YYYY-MM-DD` (ไม่เกิน 366 วัน) สรุป, รายวัน, รายชั่วโมง, วิธีชำระ, รายเมนู, รายหมวด, รายการบิล |
 
 การยืนยันตัวตน:
@@ -257,13 +298,16 @@ Socket.IO events (Server → Client, ส่งหลัง commit แล้ว�
 | 3 | POS, Order Management, Kitchen (Socket.IO) | ✅ เสร็จ |
 | 4 | Payment + ใบเสร็จ, Inventory, Sales Report | ✅ เสร็จ |
 | 5 | ทดสอบระบบ / API / Responsive | ✅ เสร็จ |
+| 6 | จัดการผู้ใช้, สูตรอาหาร + ตัดสต็อกอัตโนมัติ, รายงาน PDF | ✅ เสร็จ |
+| 7 | Security, Backup อัตโนมัติ, Deploy | ⏳ ยังไม่ได้พัฒนา |
+| 8 | UAT, คู่มือผู้ใช้/ติดตั้ง/API, สไลด์พรีเซนต์ | ⏳ ยังไม่ได้พัฒนา |
 
 หมายเหตุทางเทคนิค:
 - ใช้ `bcryptjs` (pure JavaScript, API เดียวกับ `bcrypt`) เพื่อไม่ต้อง compile native module บน Windows
 - ใช้ `mysql2/promise` (ไม่ใช้ ORM) พร้อม helper `withTransaction()` ใน `backend/src/config/database.js` (สร้างออเดอร์, เปลี่ยนสถานะ, ชำระเงิน, รายการสต็อก)
 - เลขออเดอร์รันใหม่ทุกวันจาก `order_sequences` — แถวของวันนั้นถูก lock ใน transaction จึงไม่ซ้ำแม้สร้างพร้อมกันหลายเครื่อง
 - เปลี่ยนสถานะออเดอร์ใช้ `SELECT ... FOR UPDATE` กันการกดพร้อมกันจากหลายเครื่อง
-- ชำระเงินและรายการสต็อกใช้ `SELECT ... FOR UPDATE` — ชำระพร้อมกัน 2 เครื่องสำเร็จแค่ครั้งเดียว, เบิกพร้อมกันไม่ทำให้ยอดติดลบ
+- ชำระเงินและรายการสต็อกใช้ `SELECT ... FOR UPDATE` — ชำระพร้อมกัน 2 เครื่องสำเร็จแค่ครั้งเดียว, การเบิกและการขายพร้อมกันไม่ทำให้ยอดติดลบ
 - ปริมาณวัตถุดิบคำนวณเป็นหน่วย 1/1000 (integer) เพื่อเลี่ยงปัญหาทศนิยม
 - QR PromptPay สร้างที่ Frontend (`utils/promptpay.js`, มาตรฐาน EMVCo + CRC16) — **ควรทดลองสแกนด้วยแอปธนาคารก่อนใช้งานจริง**
-- ยังไม่มี: แก้ไขรายการในออเดอร์ที่ส่งแล้ว, เหตุผลการยกเลิก, คืนเงิน/ยกเลิกบิลที่ชำระแล้ว, ตัดสต็อกอัตโนมัติจากสูตรอาหาร, VAT
+- ยังไม่มี: แก้ไขรายการในออเดอร์ที่ส่งแล้ว, เหตุผลการยกเลิก, คืนเงิน/ยกเลิกบิลที่ชำระแล้ว, สูตรวัตถุดิบของตัวเลือก (ไข่ดาว/พิเศษ), VAT

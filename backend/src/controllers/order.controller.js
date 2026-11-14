@@ -2,6 +2,7 @@ const ApiError = require('../utils/ApiError');
 const v = require('../utils/validate');
 const service = require('../services/order.service');
 const { emitEvent } = require('../config/socket');
+const menuAvailability = require('../services/menuAvailability.service');
 
 const ORDER_TYPES = ['dine_in', 'takeaway'];
 const STATUSES = ['pending', 'preparing', 'completed', 'cancelled'];
@@ -81,8 +82,16 @@ async function getOne(req, res) {
 }
 
 async function create(req, res) {
-  const order = await service.create(parseCreate(req.body), req.user.id);
+  let order;
+  try {
+    order = await service.create(parseCreate(req.body), req.user.id);
+  } catch (err) {
+    // วัตถุดิบไม่พอ -> ตั้งเมนูที่ทำไม่ได้เป็น "หมด" ทันที แล้วแจ้งข้อผิดพลาดตามเดิม
+    if (err.stockShortage) await menuAvailability.syncAndNotify();
+    throw err;
+  }
   emitEvent('order:created', { order });
+  await menuAvailability.syncAndNotify();
   res.status(201).json({ success: true, data: order, message: `สร้างออเดอร์ ${order.orderNo} สำเร็จ` });
 }
 
@@ -96,6 +105,7 @@ async function updateStatus(req, res) {
   const status = v.oneOf(req.body?.status, Object.keys(STATUS_MESSAGE), 'สถานะ');
   const order = await service.updateStatus(v.id(req.params.id), status, req.user);
   emitEvent('order:updated', { order });
+  if (status === 'cancelled') await menuAvailability.syncAndNotify(); // คืนสต็อกแล้ว เมนูที่หมดอาจกลับมาขายได้
   res.json({ success: true, data: order, message: `${STATUS_MESSAGE[status]} (${order.orderNo})` });
 }
 

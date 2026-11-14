@@ -1,7 +1,6 @@
 const ApiError = require('../utils/ApiError');
+const v = require('../utils/validate');
 const authService = require('../services/auth.service');
-
-const MIN_PASSWORD_LENGTH = 8;
 
 const str = (v) => (typeof v === 'string' ? v : '');
 
@@ -26,11 +25,7 @@ async function changePassword(req, res) {
   const newPassword = str(req.body?.newPassword);
 
   if (!currentPassword || !newPassword) throw ApiError.badRequest('กรุณากรอกรหัสผ่านให้ครบถ้วน');
-  if (newPassword.length < MIN_PASSWORD_LENGTH) {
-    throw ApiError.badRequest(`รหัสผ่านใหม่ต้องมีอย่างน้อย ${MIN_PASSWORD_LENGTH} ตัวอักษร`);
-  }
-  // bcrypt ใช้ได้สูงสุด 72 ไบต์ (อักษรไทย 1 ตัว = 3 ไบต์)
-  if (Buffer.byteLength(newPassword, 'utf8') > 72) throw ApiError.badRequest('รหัสผ่านใหม่ยาวเกินไป');
+  v.password(newPassword, 'รหัสผ่านใหม่');
   if (newPassword === currentPassword) throw ApiError.badRequest('รหัสผ่านใหม่ต้องไม่ซ้ำกับรหัสผ่านเดิม');
 
   await authService.changePassword(req.user.id, currentPassword, newPassword);

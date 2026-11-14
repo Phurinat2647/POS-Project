@@ -21,6 +21,9 @@ Food POS Management System — ระบบ POS ร้านอาหารต�
 | 3 | POS, Orders, Kitchen (Socket.IO) | ✅ เสร็จ |
 | 4 | Payment + ใบเสร็จ, Inventory, Sales Report | ✅ เสร็จ |
 | 5 | ทดสอบระบบ / API / Responsive | ✅ เสร็จ |
+| 6 | จัดการผู้ใช้, สูตรอาหาร + ตัดสต็อกอัตโนมัติ, รายงาน PDF | ✅ เสร็จ |
+| 7 | Security, Backup อัตโนมัติ, Deploy | ⏳ |
+| 8 | UAT, คู่มือผู้ใช้/ติดตั้ง/API, สไลด์พรีเซนต์ | ⏳ |
 
 เมื่อจบแต่ละ Phase ให้อัปเดตตารางนี้และตาราง "ความคืบหน้า" ใน `README.md`
 ห้ามบอกว่าฟีเจอร์ใช้งานได้ถ้ายังไม่ได้เชื่อมต่อ API/DB จริงและทดสอบแล้ว
@@ -35,6 +38,8 @@ Food POS Management System — ระบบ POS ร้านอาหารต�
 npm run dev                 # nodemon, http://localhost:5000/api
 npm run db:setup            # ⚠️ DROP + สร้างตารางใหม่ + seed (ข้อมูลเดิมหาย)
 npm run db:setup -- --schema-only
+npm run db:migrate          # ปรับ DB ที่มีข้อมูลอยู่แล้วให้ตรง schema.sql (ไม่ลบข้อมูล, รันซ้ำได้) — backup ก่อนรันกับ DB จริง
+npm run db:recipes [-- --replace]  # ใส่สูตรมาตรฐานจาก database/recipes.js (จับคู่ด้วยชื่อเมนู/วัตถุดิบ; db:setup เรียกให้เองพร้อมยอดตัวอย่าง)
 npm run db:check            # จำนวนแถว + Foreign Keys + ทดสอบภาษาไทย
 npm run hash -- <password>  # สร้าง bcrypt hash
 npm test                    # ทดสอบ API (node:test) บน DB แยก food_pos_test — สร้างใหม่ทุกไฟล์ ไม่แตะ food_pos
@@ -47,6 +52,8 @@ node scripts/responsive-check.mjs [--shots <dir>]   # Chrome headless ตรว�
 
 ตรวจ syntax ของ backend: `node --check <file>` / ทดสอบ API ด้วย `curl` หลังรันเซิร์ฟเวอร์
 ทดสอบบน DB จริงแล้ว ให้ `mysqldump` ตารางที่จะถูกแก้ไว้ก่อน และ restore หลังทดสอบ (ไม่ทิ้งข้อมูลทดสอบไว้ใน DB ของผู้ใช้)
+ทดสอบ UI ด้วยข้อมูลทดสอบ: รัน backend ด้วย `DB_NAME=food_pos_test` (หยุด nodemon ของผู้ใช้ก่อน — TaskStop ไม่ฆ่า child `node src/server.js` ต้องเช็กพอร์ต 5000) แล้วสลับกลับ
+backup ฐานข้อมูลเก็บที่ `backups/` (อยู่ใน .gitignore)
 เทสต์ API อยู่ที่ `backend/tests/*.test.js` (`helpers.js`: `startServer()` → `{ request, tokens, pool }`, DB `food_pos_test`) — เพิ่มฟีเจอร์ใหม่ให้เพิ่มเทสต์ด้วย; ยังไม่มี linter
 
 บัญชีทดสอบ: `admin/admin1234`, `cashier/cashier1234`, `kitchen/kitchen1234`
@@ -63,8 +70,10 @@ backend/src/
   services/     business logic + SQL
   models/       (ถ้าจำเป็น) query helper ของแต่ละตาราง
   middlewares/  errorHandler.js (notFound + errorHandler), auth.js (authenticate → req.user, authorize(...roles)), loginLimiter.js
-  utils/        ApiError, asyncHandler, money (toSatang/toBaht), jwt, validate (requiredString/money/id/bool/oneOf — ใช้ใน controller)
+  utils/        ApiError, asyncHandler, money (toSatang/toBaht), jwt, validate (requiredString/money/id/bool/oneOf/quantity/password/username — ใช้ใน controller)
 backend/database/schema.sql, seed.sql   — แหล่งความจริงของโครงสร้างฐานข้อมูล
+backend/database/recipes.js             — วัตถุดิบ + สูตรมาตรฐานของเมนูตั้งต้น (ใช้โดย scripts/db-recipes.js; เปลี่ยนชื่อเมนูใน seed ต้องแก้ที่นี่ด้วย)
+backend/scripts/db-migrate.js           — migration แบบ idempotent สำหรับ DB เดิม: แก้ schema.sql แล้วเพิ่มขั้นใน MIGRATIONS ด้วยเสมอ
 ```
 
 แนวทางเพิ่มโมดูลใหม่: `routes -> controller -> service` ห่อ controller ด้วย `asyncHandler`
@@ -90,8 +99,16 @@ backend/database/schema.sql, seed.sql   — แหล่งความจริ
 - **Payment** — 1 ออเดอร์ชำระได้ครั้งเดียว (`UNIQUE(order_id)`), ต้องอัปเดต `orders.payment_status='paid'` และ `paid_at` ใน transaction เดียวกัน
   (`payment.service.js`: lock ด้วย FOR UPDATE, ส่วนลด amount/percent คำนวณจาก `orders.subtotal` ใน DB, เขียน `orders.discount/total` ตอนชำระ)
   ค่าตั้งต้นที่ผู้ใช้เลือก: ไม่คิด VAT, admin+cashier ให้ส่วนลดได้, ชำระได้ทั้งตอนส่งออเดอร์และภายหลัง
-- **สต็อก** — เปลี่ยน `ingredients.quantity` ผ่าน `inventory.service.addTransaction` เท่านั้น (FOR UPDATE, คำนวณหน่วย 1/1000)
-  `adjust` รับยอดที่นับได้ (`newBalance`) แล้วบันทึก `quantity = |ส่วนต่าง|`; ยังไม่ตัดสต็อกอัตโนมัติจากการขาย (ผู้ใช้เลือกบันทึกเอง)
+- **สต็อก** — เปลี่ยน `ingredients.quantity` ผ่าน `inventory.service` เท่านั้น (FOR UPDATE, คำนวณหน่วย 1/1000) และบันทึก `inventory_transactions` ทุกครั้ง
+  - ทำเอง: `addTransaction` — `out` ห้ามเกินคงเหลือ, `adjust` รับยอดที่นับได้ (`newBalance`) แล้วบันทึก `quantity = |ส่วนต่าง|`
+  - อัตโนมัติ (ผู้ใช้เลือก): `deductForOrder` ตัดตามสูตร `menu_ingredients` × จำนวน **ตอนสร้างออเดอร์** ใน transaction เดียวกัน (type `out`, มี `order_id`)
+    **ยอดห้ามติดลบ** (CHECK `chk_ingredients_stock`) — วัตถุดิบไม่พอ → 409 ทั้งใบ (`err.stockShortage`, `details` = รายการที่ขาด) rollback ทั้งออเดอร์; ข้ามวัตถุดิบที่ปิดใช้งาน; คืน `stockWarnings` (≤ ขั้นต่ำ) ให้ POS แจ้งเตือน
+  - **เมนูหมดอัตโนมัติ** `menuAvailability.service`: `sync()` ตั้งเมนูที่วัตถุดิบไม่พอทำ 1 จานเป็น `sold_out` + `menus.auto_sold_out=1` และเปิดขายคืนเมื่อพอ (เฉพาะ auto — ที่ผู้ใช้ตั้งหมดเองไม่แตะ)
+    controller เรียก `syncAndNotify()` (ส่ง `menu:updated`) หลังทุกการเปลี่ยนยอด/สูตร/สถานะวัตถุดิบ รวมถึงตอนออเดอร์ถูกปฏิเสธเพราะวัตถุดิบไม่พอ; ตั้งเมนูเป็นพร้อมขายเองตอนวัตถุดิบไม่พอ → 400
+    `restockForOrder` คืนตามรายการที่ตัดจริงของออเดอร์นั้น (ไม่ใช่สูตรปัจจุบัน) เมื่อ **ยกเลิก**; ล็อกวัตถุดิบเรียงตาม id กัน deadlock
+  - ยังไม่ผูกสูตรกับตัวเลือก (เช่น ไข่ดาว/พิเศษ) — ตัดเฉพาะสูตรของเมนู
+- **ผู้ใช้** (`user.service.js`, admin เท่านั้น) — ห้ามแก้ role/ปิด/ลบ/รีเซ็ตรหัส ของตัวเอง, ต้องเหลือ admin ที่ active ≥ 1 (ล็อก FOR UPDATE),
+  username เก็บตัวพิมพ์เล็ก a-z0-9._- ; `authenticate` โหลดผู้ใช้จาก DB ทุก request จึงปิดใช้งาน/เปลี่ยน role มีผลทันที
 - **รายงาน/Dashboard** นับเฉพาะ `payment_status='paid'` ตาม `paid_at`
 - **ลบเมนู/ผู้ใช้ที่เคยถูกใช้งาน** ให้ soft delete ด้วย `is_active = 0`
 - **SQL ใช้ placeholder `?` เสมอ** ห้ามต่อ string จาก input ของผู้ใช้
@@ -105,7 +122,7 @@ backend/database/schema.sql, seed.sql   — แหล่งความจริ
 - `menu_options` ผูกได้ 3 ระดับ: `menu_id` (เมนูเดียว) / `category_id` (ทั้งหมวด) / ทั้งคู่ NULL (ทุกเมนู) — ห้ามกำหนดทั้งสองค่าพร้อมกัน (CHECK)
   `option_type`: `size` เลือกได้ 1 อย่าง (มี `is_default`), `topping` เลือกได้หลายอย่าง
 - สถานะ: `orders.status` = pending/preparing/completed/cancelled, `orders.payment_status` = unpaid/paid, `menus.status` = available/sold_out
-- `inventory_transactions.type` = in/out/adjust, `quantity` เป็นค่าบวกเสมอ, บันทึก `balance_after` ทุกครั้ง
+- `inventory_transactions.type` = in/out/adjust, `quantity` เป็นค่าบวกเสมอ, บันทึก `balance_after` ทุกครั้ง (ไม่ติดลบ), `order_id` = รายการอัตโนมัติจากออเดอร์
 - ถ้าแก้ schema ต้องแก้ทั้ง `schema.sql`, `seed.sql` (ถ้ากระทบ), และ `EXPECTED_TABLES` ใน `routes/health.routes.js`
 - ต้องรองรับทั้ง MariaDB 10.4 และ MySQL 8 — หลีกเลี่ยงฟีเจอร์ที่มีแค่ฝั่งเดียว
 
@@ -123,7 +140,8 @@ backend/database/schema.sql, seed.sql   — แหล่งความจริ
   API ตอบ 401 → `api.js` ล้าง token และยิง event `food-pos:unauthorized` ให้ AuthContext กลับหน้า Login
 - หน้าที่มี: `/login`, `/` (Dashboard สำหรับ admin/cashier, kitchen ถูก redirect ไป `/kitchen`), `/pos`, `/orders` (admin/cashier), `/kitchen` (ทุก role),
   `/inventory` (admin/kitchen), `/reports` (admin, lazy), `/settings` (admin), `/orders/:id/receipt` (admin/cashier — นอก MainLayout สำหรับพิมพ์, `?print=1`),
-  `/menus` (ทุก role; แก้ไขได้เฉพาะ admin), `/categories`, `/menu-options`, `/system-status` (admin), `/change-password`, `/forbidden`
+  `/menus` (ทุก role; แก้ไขได้เฉพาะ admin; สูตรวัตถุดิบ `components/RecipeModal.jsx` — admin แก้ (พิมพ์ชื่อเองได้ ชื่อใหม่ส่ง `{ name, unit }` ให้ `recipe.service` สร้างวัตถุดิบใน transaction เดียว), kitchen ดู), `/categories`, `/menu-options`,
+  `/users` (admin), `/reports/print?from&to` (admin — นอก MainLayout, A4 สำหรับ "บันทึกเป็น PDF", lazy), `/system-status` (admin), `/change-password`, `/forbidden`
 - ชำระเงิน: `components/PaymentModal.jsx` (ใช้ทั้งใน PosPage และ OrdersPage), QR จาก `utils/promptpay.js` + package `qrcode`, CSV จาก `utils/csv.js`
 - Real-time: `contexts/SocketContext.jsx` — `SocketProvider` ครอบใน `MainLayout` (ตัดการเชื่อมต่อเมื่อ logout),
   `useSocketEvent(event, handler)`, `useSocketReconnect(handler)` (โหลดข้อมูลใหม่หลังหลุด), `useSocketStatus()`

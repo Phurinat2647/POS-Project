@@ -6,7 +6,8 @@ const ApiError = require('../utils/ApiError');
  * - ปริมาณคำนวณเป็นหน่วย 1/1000 (integer) เพื่อเลี่ยงปัญหาทศนิยม (คอลัมน์ DECIMAL(12,3))
  * - การเปลี่ยนยอดทุกครั้งทำผ่าน inventory_transactions ใน transaction เดียวกับการอัปเดต ingredients
  *   quantity เป็นค่าบวกเสมอ, balance_after = ยอดหลังทำรายการ
- * - ยังไม่ตัดสต็อกอัตโนมัติจากการขาย (menu_ingredients เตรียมไว้สำหรับอนาคต)
+ * - ตัดสต็อกอัตโนมัติตามสูตร (menu_ingredients) เมื่อสร้างออเดอร์ และคืนเมื่อยกเลิก — รายการมี order_id
+ *   ยอดห้ามติดลบ: วัตถุดิบไม่พอ -> ปฏิเสธออเดอร์ทั้งใบ (409) และเมนูที่ทำไม่ได้ถูกตั้งเป็น "หมด" (menuAvailability.service)
  */
 
 const toMilli = (v) => Math.round(Number(v || 0) * 1000);
@@ -38,6 +39,8 @@ const toTransaction = (r) => ({
   balanceAfter: r.balance_after,
   unitCost: r.unit_cost,
   note: r.note,
+  orderId: r.order_id ?? null,
+  orderNo: r.order_no ?? null,
   createdByName: r.created_by_name ?? null,
   createdAt: r.created_at,
 });
@@ -174,10 +177,11 @@ async function addTransaction(ingredientId, { type, quantity, newBalance, unitCo
 }
 
 const TX_SELECT = `
-  SELECT t.*, i.name AS ingredient_name, i.unit, u.full_name AS created_by_name
+  SELECT t.*, i.name AS ingredient_name, i.unit, u.full_name AS created_by_name, o.order_no
     FROM inventory_transactions t
     JOIN ingredients i ON i.id = t.ingredient_id
-    LEFT JOIN users u ON u.id = t.created_by`;
+    LEFT JOIN users u ON u.id = t.created_by
+    LEFT JOIN orders o ON o.id = t.order_id`;
 
 /** ประวัติการเคลื่อนไหว (ใหม่สุดก่อน) — filters: ingredientId, type, page, pageSize */
 async function listTransactions({ ingredientId, type, page = 1, pageSize = 30 } = {}) {
@@ -204,4 +208,115 @@ async function listTransactions({ ingredientId, type, page = 1, pageSize = 30 } 
   };
 }
 
-module.exports = { list, getById, create, update, remove, addTransaction, listTransactions, TYPE_LABEL };
+// ---------------------------------------------------------------------
+// ตัด / คืนสต็อกจากออเดอร์ (เรียกภายใน transaction ของ order.service — ต้องส่ง conn มาเสมอ)
+// ---------------------------------------------------------------------
+
+/**
+ * ล็อกแถววัตถุดิบเรียงตาม id (กัน deadlock เมื่อหลายออเดอร์ตัดวัตถุดิบชุดเดียวกันพร้อมกัน)
+ * แล้วบันทึกการเปลี่ยนยอดของแต่ละวัตถุดิบ
+ * changes: Map<ingredientId, milli> (+ รับคืน / - ตัดออก)
+ */
+async function applyOrderMovements(conn, changes, { orderId, note, userId, usedBy }) {
+  const ids = [...changes.keys()].sort((a, b) => a - b);
+  if (!ids.length) return [];
+  const [rows] = await conn.query(
+    'SELECT id, name, unit, quantity, min_quantity FROM ingredients WHERE id IN (?) ORDER BY id FOR UPDATE',
+    [ids]
+  );
+  // ตรวจทุกรายการก่อนแก้ยอด — ห้ามติดลบ
+  const shortages = rows
+    .filter((row) => toMilli(row.quantity) + (changes.get(row.id) || 0) < 0)
+    .map((row) => ({
+      ingredientId: row.id,
+      name: row.name,
+      unit: row.unit,
+      required: fromMilli(-changes.get(row.id)),
+      available: row.quantity,
+      menus: usedBy ? [...(usedBy.get(row.id) || [])] : [],
+    }));
+  if (shortages.length) {
+    const list = shortages
+      .map((s) => `${s.name} (ต้องใช้ ${s.required} เหลือ ${s.available} ${s.unit}${s.menus.length ? ` — ${s.menus.join(', ')}` : ''})`)
+      .join(', ');
+    const err = new ApiError(409, `วัตถุดิบไม่พอ: ${list}`, shortages);
+    err.stockShortage = true;
+    throw err;
+  }
+  const result = [];
+  for (const row of rows) {
+    const change = changes.get(row.id);
+    if (!change) continue;
+    const balance = toMilli(row.quantity) + change;
+    await conn.query('UPDATE ingredients SET quantity = ? WHERE id = ?', [fromMilli(balance), row.id]);
+    await conn.query(
+      `INSERT INTO inventory_transactions (ingredient_id, type, quantity, balance_after, note, order_id, created_by)
+       VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      [row.id, change > 0 ? 'in' : 'out', fromMilli(Math.abs(change)), fromMilli(balance), note, orderId, userId]
+    );
+    result.push({
+      id: row.id,
+      name: row.name,
+      unit: row.unit,
+      quantity: fromMilli(balance),
+      minQuantity: row.min_quantity,
+    });
+  }
+  return result;
+}
+
+/**
+ * ตัดสต็อกตามสูตรของเมนูในออเดอร์ — lines: [{ menuId, quantity }]
+ * ข้ามวัตถุดิบที่ถูกปิดใช้งาน; วัตถุดิบไม่พอ -> โยน 409 (err.stockShortage, details = รายการที่ขาด)
+ * คืนรายการวัตถุดิบที่ถึงจุดเตือน (คงเหลือ <= ขั้นต่ำ) สำหรับแจ้งพนักงาน
+ */
+async function deductForOrder(conn, { orderId, orderNo, lines, userId }) {
+  const menuIds = [...new Set(lines.map((l) => l.menuId))];
+  if (!menuIds.length) return [];
+  const [recipe] = await conn.query(
+    `SELECT mi.menu_id, mi.ingredient_id, mi.quantity, m.name AS menu_name
+       FROM menu_ingredients mi
+       JOIN ingredients i ON i.id = mi.ingredient_id
+       JOIN menus m ON m.id = mi.menu_id
+      WHERE mi.menu_id IN (?) AND i.is_active = 1`,
+    [menuIds]
+  );
+  const changes = new Map();
+  const usedBy = new Map(); // ingredientId -> Set<ชื่อเมนู> สำหรับข้อความแจ้งวัตถุดิบไม่พอ
+  for (const line of lines) {
+    for (const r of recipe.filter((x) => x.menu_id === line.menuId)) {
+      changes.set(r.ingredient_id, (changes.get(r.ingredient_id) || 0) - toMilli(r.quantity) * line.quantity);
+      if (!usedBy.has(r.ingredient_id)) usedBy.set(r.ingredient_id, new Set());
+      usedBy.get(r.ingredient_id).add(r.menu_name);
+    }
+  }
+  const moved = await applyOrderMovements(conn, changes, { orderId, note: `ขายออเดอร์ ${orderNo}`, userId, usedBy });
+  return moved.filter((i) => i.quantity <= i.minQuantity);
+}
+
+/** คืนสต็อกทั้งหมดที่ตัดไปจากออเดอร์ (ใช้เมื่อยกเลิกออเดอร์) — อ้างอิงจากรายการเดิมจึงคืนได้ตรงแม้สูตรถูกแก้ภายหลัง */
+async function restockForOrder(conn, { orderId, orderNo, userId }) {
+  const [rows] = await conn.query(
+    `SELECT ingredient_id,
+            SUM(CASE WHEN type = 'out' THEN quantity ELSE -quantity END) AS net_out
+       FROM inventory_transactions
+      WHERE order_id = ? AND type IN ('in', 'out')
+      GROUP BY ingredient_id`,
+    [orderId]
+  );
+  const changes = new Map(rows.filter((r) => toMilli(r.net_out) > 0).map((r) => [r.ingredient_id, toMilli(r.net_out)]));
+  return applyOrderMovements(conn, changes, { orderId, note: `คืนสต็อก ยกเลิกออเดอร์ ${orderNo}`, userId });
+}
+
+module.exports = {
+  list,
+  getById,
+  create,
+  update,
+  remove,
+  addTransaction,
+  listTransactions,
+  deductForOrder,
+  restockForOrder,
+  TYPE_LABEL,
+};

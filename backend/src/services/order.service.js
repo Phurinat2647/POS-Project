@@ -1,11 +1,13 @@
 const { pool, withTransaction } = require('../config/database');
 const ApiError = require('../utils/ApiError');
 const { toSatang, toBaht } = require('../utils/money');
+const inventoryService = require('./inventory.service');
 
 /**
  * ออเดอร์
  * - ราคาทั้งหมดคำนวณที่นี่จากฐานข้อมูล (หน่วยสตางค์) — ไม่รับราคาจาก client
  * - order_items / order_item_options เก็บ snapshot ชื่อและราคา ณ เวลาสั่ง
+ * - ตัดสต็อกตามสูตรเมนูใน transaction เดียวกับการสร้างออเดอร์ และคืนสต็อกเมื่อยกเลิก
  */
 
 const STATUS_LABEL = { pending: 'รอทำ', preparing: 'กำลังทำ', completed: 'เสร็จแล้ว', cancelled: 'ยกเลิก' };
@@ -320,7 +322,17 @@ async function create(data, cashierId) {
       }
     }
 
-    return getById(orderId, conn);
+    // ตัดสต็อกตามสูตร — วัตถุดิบไม่พอจะโยน 409 และ rollback ทั้งออเดอร์ (ยอดไม่ติดลบ)
+    // คืนรายการที่ถึงจุดเตือนไปแจ้งพนักงาน
+    const stockWarnings = await inventoryService.deductForOrder(conn, {
+      orderId,
+      orderNo,
+      lines: lines.map((l) => ({ menuId: l.menu.id, quantity: l.quantity })),
+      userId: cashierId,
+    });
+
+    const order = await getById(orderId, conn);
+    return { ...order, stockWarnings };
   });
 }
 
@@ -336,7 +348,7 @@ async function create(data, cashierId) {
  */
 async function updateStatus(id, nextStatus, user) {
   return withTransaction(async (conn) => {
-    const [[row]] = await conn.query('SELECT id, status, payment_status FROM orders WHERE id = ? FOR UPDATE', [id]);
+    const [[row]] = await conn.query('SELECT id, order_no, status, payment_status FROM orders WHERE id = ? FOR UPDATE', [id]);
     if (!row) throw ApiError.notFound('ไม่พบออเดอร์');
 
     if (row.status === nextStatus) {
@@ -354,6 +366,9 @@ async function updateStatus(id, nextStatus, user) {
 
     const timeColumn = STATUS_TIME_COLUMN[nextStatus];
     await conn.query(`UPDATE orders SET status = ?, ${timeColumn} = NOW() WHERE id = ?`, [nextStatus, id]);
+    if (nextStatus === 'cancelled') {
+      await inventoryService.restockForOrder(conn, { orderId: id, orderNo: row.order_no, userId: user.id });
+    }
     return getById(id, conn);
   });
 }

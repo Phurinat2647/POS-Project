@@ -15,6 +15,7 @@ import {
   Menu,
   ShoppingCart,
   Soup,
+  Users,
   UtensilsCrossed,
   Wifi,
   WifiOff,
@@ -39,6 +40,7 @@ const NAV_ITEMS = [
   { to: '/menus', label: 'เมนูอาหาร', icon: Soup },
   { to: '/categories', label: 'หมวดหมู่', icon: FolderTree, roles: [ROLES.ADMIN] },
   { to: '/menu-options', label: 'ตัวเลือกเมนู', icon: ListPlus, roles: [ROLES.ADMIN] },
+  { to: '/users', label: 'ผู้ใช้งาน', icon: Users, roles: [ROLES.ADMIN] },
   { to: '/settings', label: 'ตั้งค่าร้าน', icon: Store, roles: [ROLES.ADMIN] },
   { to: '/system-status', label: 'สถานะระบบ', icon: Activity, roles: [ROLES.ADMIN] },
 ];

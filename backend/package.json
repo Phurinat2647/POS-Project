@@ -9,6 +9,8 @@
     "dev": "nodemon src/server.js",
     "start": "node src/server.js",
     "db:setup": "node scripts/db-setup.js",
+    "db:migrate": "node scripts/db-migrate.js",
+    "db:recipes": "node scripts/db-recipes.js",
     "db:check": "node scripts/db-check.js",
     "hash": "node scripts/hash-password.js",
     "test": "node --test --test-concurrency=1 \"tests/*.test.js\""
