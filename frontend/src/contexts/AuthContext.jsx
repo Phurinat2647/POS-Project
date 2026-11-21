@@ -1,6 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import { UNAUTHORIZED_EVENT, getToken, setToken } from '../services/api';
 import * as authService from '../services/auth.service';
+import { clearPosCart } from '../utils/posCart';
 
 const AuthContext = createContext(null);
 
@@ -39,6 +40,7 @@ export function AuthProvider({ children }) {
   // token หมดอายุระหว่างใช้งาน
   useEffect(() => {
     const onUnauthorized = (e) => {
+      clearPosCart();
       setUser(null);
       setStatus('guest');
       setSessionMessage(e.detail?.message || 'เซสชันหมดอายุ กรุณาเข้าสู่ระบบใหม่');
@@ -57,6 +59,7 @@ export function AuthProvider({ children }) {
   }, []);
 
   const logout = useCallback(() => {
+    clearPosCart(); // ตะกร้า POS ที่ค้างไว้หายเมื่อออกจากระบบ
     setToken(null);
     setUser(null);
     setStatus('guest');

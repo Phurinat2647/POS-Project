@@ -5,12 +5,14 @@ import { EmptyState, ErrorState, LoadingState } from '../components/States';
 import MenuItemModal, { MAX_QTY, buildLine, lineUnitSatang } from '../components/pos/MenuItemModal';
 import CartPanel from '../components/pos/CartPanel';
 import PaymentModal from '../components/PaymentModal';
+import { useAuth } from '../contexts/AuthContext';
 import { useSocketEvent, useSocketReconnect } from '../contexts/SocketContext';
 import { getPosCatalog } from '../services/pos.service';
 import { createOrder } from '../services/order.service';
 import { showError } from '../utils/alert';
 import { formatCurrency, formatNumber } from '../utils/format';
 import { toBaht } from '../utils/money';
+import { clearPosCart, loadPosCart, savePosCart } from '../utils/posCart';
 
 const EMPTY_FORM = { orderType: 'dine_in', tableNo: '', note: '' };
 
@@ -41,13 +43,21 @@ export default function PosPage() {
   const [categoryId, setCategoryId] = useState('all');
   const [search, setSearch] = useState('');
 
-  const [lines, setLines] = useState([]);
-  const [form, setForm] = useState(EMPTY_FORM);
+  const { user } = useAuth();
+  // ตะกร้าจำไว้ใน sessionStorage — เปลี่ยนหน้าแล้วกลับมายังอยู่ (หายเมื่อปิดแท็บ/ออกจากระบบ)
+  const [saved] = useState(() => loadPosCart(user?.id));
+  const [lines, setLines] = useState(() => saved?.lines ?? []);
+  const [form, setForm] = useState(() => ({ ...EMPTY_FORM, ...saved?.form }));
   const [picking, setPicking] = useState(null); // { menu, line? }
   const [submitting, setSubmitting] = useState(false);
   const [cartOpen, setCartOpen] = useState(false);
   const [paying, setPaying] = useState(null); // ออเดอร์ที่เพิ่งสร้างและเลือก "ชำระเงินเลย"
-  const keySeq = useRef(0);
+  const keySeq = useRef(Math.max(0, ...(saved?.lines ?? []).map((l) => Number(l.key) || 0)));
+
+  useEffect(() => {
+    if (!lines.length && form.orderType === EMPTY_FORM.orderType && !form.tableNo && !form.note) clearPosCart();
+    else savePosCart(user?.id, { lines, form });
+  }, [lines, form, user?.id]);
 
   const load = useCallback(async ({ silent = false } = {}) => {
     if (!silent) setLoading(true);
@@ -72,6 +82,17 @@ export default function PosPage() {
   useSocketReconnect(() => load({ silent: true }));
 
   const menusById = useMemo(() => new Map((catalog?.menus || []).map((m) => [m.id, m])), [catalog]);
+
+  // ตะกร้าที่จำไว้อาจมีชื่อ/ราคาเก่า -> อัปเดตจากข้อมูลเมนูล่าสุด (เมนูที่ถูกลบจะถูกแจ้งให้นำออก)
+  useEffect(() => {
+    if (!catalog) return;
+    setLines((ls) =>
+      ls.map((l) => {
+        const menu = menusById.get(l.menuId);
+        return menu ? { ...buildLine(menu, l), key: l.key } : l;
+      })
+    );
+  }, [catalog, menusById]);
 
   /** เมนูในตะกร้าที่ไม่พร้อมขายแล้ว */
   const unavailable = useMemo(

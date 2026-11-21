@@ -142,6 +142,7 @@ backend/scripts/db-migrate.js           — migration แบบ idempotent ส�
   `/inventory` (admin/kitchen), `/reports` (admin, lazy), `/settings` (admin), `/orders/:id/receipt` (admin/cashier — นอก MainLayout สำหรับพิมพ์, `?print=1`),
   `/menus` (ทุก role; แก้ไขได้เฉพาะ admin; สูตรวัตถุดิบ `components/RecipeModal.jsx` — admin แก้ (พิมพ์ชื่อเองได้ ชื่อใหม่ส่ง `{ name, unit }` ให้ `recipe.service` สร้างวัตถุดิบใน transaction เดียว), kitchen ดู), `/categories`, `/menu-options`,
   `/users` (admin), `/reports/print?from&to` (admin — นอก MainLayout, A4 สำหรับ "บันทึกเป็น PDF", lazy), `/system-status` (admin), `/change-password`, `/forbidden`
+- ตะกร้า POS จำไว้ใน `sessionStorage` (`utils/posCart.js`, ผูก userId) — เปลี่ยนหน้า/refresh ยังอยู่, ปิดแท็บหาย, `logout`/401 ใน AuthContext เรียก `clearPosCart()`; โหลด catalog แล้วอัปเดตชื่อ/ราคาในตะกร้าด้วย `buildLine`
 - ชำระเงิน: `components/PaymentModal.jsx` (ใช้ทั้งใน PosPage และ OrdersPage), QR จาก `utils/promptpay.js` + package `qrcode`, CSV จาก `utils/csv.js`
 - Real-time: `contexts/SocketContext.jsx` — `SocketProvider` ครอบใน `MainLayout` (ตัดการเชื่อมต่อเมื่อ logout),
   `useSocketEvent(event, handler)`, `useSocketReconnect(handler)` (โหลดข้อมูลใหม่หลังหลุด), `useSocketStatus()`
