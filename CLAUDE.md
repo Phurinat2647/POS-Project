@@ -139,7 +139,8 @@ backend/scripts/db-migrate.js           — migration แบบ idempotent ส�
 - Auth: `contexts/AuthContext.jsx` (`useAuth()` → user, status, login, logout, hasRole), `components/ProtectedRoute.jsx` (`roles` prop), `layouts/MainLayout.jsx` (เพิ่มเมนู Sidebar ที่ `NAV_ITEMS`)
   API ตอบ 401 → `api.js` ล้าง token และยิง event `food-pos:unauthorized` ให้ AuthContext กลับหน้า Login
 - หน้าที่มี: `/login`, `/` (Dashboard สำหรับ admin/cashier, kitchen ถูก redirect ไป `/kitchen`), `/pos`, `/orders` (admin/cashier), `/kitchen` (ทุก role),
-  `/inventory` (admin/kitchen), `/reports` (admin, lazy), `/settings` (admin), `/orders/:id/receipt` (admin/cashier — นอก MainLayout สำหรับพิมพ์, `?print=1`),
+  `/inventory` (admin/kitchen), `/reports` (admin, lazy), `/settings` (admin), `/orders/:id/receipt` (admin/cashier — นอก MainLayout สำหรับพิมพ์, `?print=1`; ใบเสร็จกระดาษ 57 มม. ความสูงวัดจากเนื้อหา + ฉลากกล่อง 60x40 มม. 1 ดวง/กล่อง พิมพ์แยกรอบด้วยคิว `afterprint`),
+  `/orders/:id/kitchen-ticket` (ทุก role — ใบสั่งครัว 80x80 มม. ไม่มีราคา; `utils/kitchenTicket.js` พิมพ์ผ่าน iframe ซ่อน, POS พิมพ์อัตโนมัติเมื่อส่งออเดอร์ ปิดได้ต่อเครื่อง),
   `/menus` (ทุก role; แก้ไขได้เฉพาะ admin; สูตรวัตถุดิบ `components/RecipeModal.jsx` — admin แก้ (พิมพ์ชื่อเองได้ ชื่อใหม่ส่ง `{ name, unit }` ให้ `recipe.service` สร้างวัตถุดิบใน transaction เดียว), kitchen ดู), `/categories`, `/menu-options`,
   `/users` (admin), `/reports/print?from&to` (admin — นอก MainLayout, A4 สำหรับ "บันทึกเป็น PDF", lazy), `/system-status` (admin), `/change-password`, `/forbidden`
 - ตะกร้า POS จำไว้ใน `sessionStorage` (`utils/posCart.js`, ผูก userId) — เปลี่ยนหน้า/refresh ยังอยู่, ปิดแท็บหาย, `logout`/401 ใน AuthContext เรียก `clearPosCart()`; โหลด catalog แล้วอัปเดตชื่อ/ราคาในตะกร้าด้วย `buildLine`

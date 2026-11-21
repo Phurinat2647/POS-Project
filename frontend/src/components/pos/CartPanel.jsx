@@ -1,4 +1,4 @@
-import { AlertTriangle, Loader2, Pencil, Send, ShoppingBag, Trash2, Utensils, X } from 'lucide-react';
+import { AlertTriangle, Loader2, Pencil, Printer, Send, ShoppingBag, Trash2, Utensils, X } from 'lucide-react';
 import { formatCurrency } from '../../utils/format';
 import { toBaht } from '../../utils/money';
 import { ORDER_TYPE } from '../../utils/labels';
@@ -22,6 +22,8 @@ export default function CartPanel({
   onSubmit,
   submitting,
   onClose,
+  autoPrint = false,
+  onAutoPrintChange,
 }) {
   const totalSatang = lines.reduce((s, l) => s + lineUnitSatang(l) * l.quantity, 0);
   const itemCount = lines.reduce((s, l) => s + l.quantity, 0);
@@ -129,6 +131,12 @@ export default function CartPanel({
           <span className="text-sm text-slate-500">ยอดรวม</span>
           <span className="text-2xl font-semibold text-primary-800 tabular-nums">{formatCurrency(toBaht(totalSatang))}</span>
         </div>
+        {onAutoPrintChange && (
+          <label className="flex cursor-pointer items-center gap-2 text-sm text-slate-600">
+            <input type="checkbox" checked={autoPrint} onChange={(e) => onAutoPrintChange(e.target.checked)} />
+            <Printer size={15} /> พิมพ์ใบสั่งครัวเมื่อส่งออเดอร์
+          </label>
+        )}
         <button
           type="button"
           className="btn-primary w-full py-3 text-base"

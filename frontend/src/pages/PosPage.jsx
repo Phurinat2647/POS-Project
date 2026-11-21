@@ -13,6 +13,7 @@ import { showError } from '../utils/alert';
 import { formatCurrency, formatNumber } from '../utils/format';
 import { toBaht } from '../utils/money';
 import { clearPosCart, loadPosCart, savePosCart } from '../utils/posCart';
+import { loadAutoKitchenTicket, printKitchenTicket, saveAutoKitchenTicket } from '../utils/kitchenTicket';
 
 const EMPTY_FORM = { orderType: 'dine_in', tableNo: '', note: '' };
 
@@ -52,6 +53,7 @@ export default function PosPage() {
   const [submitting, setSubmitting] = useState(false);
   const [cartOpen, setCartOpen] = useState(false);
   const [paying, setPaying] = useState(null); // ออเดอร์ที่เพิ่งสร้างและเลือก "ชำระเงินเลย"
+  const [autoPrint, setAutoPrint] = useState(loadAutoKitchenTicket); // พิมพ์ใบสั่งครัวเมื่อส่งออเดอร์ (จำต่อเครื่อง)
   const keySeq = useRef(Math.max(0, ...(saved?.lines ?? []).map((l) => Number(l.key) || 0)));
 
   useEffect(() => {
@@ -173,6 +175,7 @@ export default function PosPage() {
         })),
       });
       const order = res.data;
+      if (autoPrint) printKitchenTicket(order.id);
       setLines([]);
       setForm(EMPTY_FORM);
       setCartOpen(false);
@@ -213,6 +216,11 @@ export default function PosPage() {
       onClear={clearCart}
       onSubmit={submit}
       submitting={submitting}
+      autoPrint={autoPrint}
+      onAutoPrintChange={(on) => {
+        setAutoPrint(on);
+        saveAutoKitchenTicket(on);
+      }}
     />
   );
 

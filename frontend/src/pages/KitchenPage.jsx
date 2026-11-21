@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { ChefHat, Clock, Loader2, RefreshCw, ShoppingBag, Utensils, Volume2, VolumeX } from 'lucide-react';
+import { ChefHat, Clock, Loader2, Printer, RefreshCw, ShoppingBag, Utensils, Volume2, VolumeX } from 'lucide-react';
+import { printKitchenTicket } from '../utils/kitchenTicket';
 import PageHeader from '../components/PageHeader';
 import OrderItems from '../components/OrderItems';
 import { ErrorState, LoadingState } from '../components/States';
@@ -231,9 +232,20 @@ function KitchenCard({ order, now, busy, isNew = false, onAdvance }) {
             {order.orderNo} · สั่งเมื่อ {formatTime(order.createdAt)}
           </div>
         </div>
-        <span className={`badge shrink-0 ${waitTone}`}>
-          <Clock size={12} /> {waitedMin} นาที
-        </span>
+        <div className="flex shrink-0 items-center gap-1">
+          <span className={`badge ${waitTone}`}>
+            <Clock size={12} /> {waitedMin} นาที
+          </span>
+          <button
+            type="button"
+            className="btn-icon h-8 w-8"
+            onClick={() => printKitchenTicket(order.id)}
+            title="พิมพ์ใบสั่งครัว"
+            aria-label="พิมพ์ใบสั่งครัว"
+          >
+            <Printer size={16} />
+          </button>
+        </div>
       </header>
       <div className="px-4 py-2">
         <OrderItems items={order.items} size="lg" />

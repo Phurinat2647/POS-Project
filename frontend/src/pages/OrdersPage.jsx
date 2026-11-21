@@ -9,6 +9,7 @@ import OrderItems from '../components/OrderItems';
 import { EmptyState, ErrorState, LoadingState } from '../components/States';
 import { useSocketEvent, useSocketReconnect } from '../contexts/SocketContext';
 import { getOrders, openReceipt, updateOrderStatus } from '../services/order.service';
+import { printKitchenTicket } from '../utils/kitchenTicket';
 import { showError, toastSuccess } from '../utils/alert';
 import { formatCurrency, formatDateTime, formatTime } from '../utils/format';
 import { ORDER_NEXT_STEP, ORDER_STATUS, ORDER_TYPE, PAYMENT_STATUS, canCancelOrder } from '../utils/labels';
@@ -298,6 +299,11 @@ function OrderDetailModal({ order, busy, onClose, onChangeStatus, onPay }) {
             {canPay && (
               <button className="btn-primary" disabled={busy} onClick={() => onPay(order)}>
                 <Wallet size={16} /> ชำระเงิน
+              </button>
+            )}
+            {order.status !== 'cancelled' && (
+              <button className="btn-outline" onClick={() => printKitchenTicket(order.id)}>
+                <Printer size={16} /> ใบสั่งครัว
               </button>
             )}
             {order.paymentStatus === 'paid' && (
