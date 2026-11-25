@@ -148,6 +148,18 @@ const MIGRATIONS = [
       console.log(`  เติมชื่ออังกฤษในออเดอร์เก่า: รายการอาหาร ${a.affectedRows}, ตัวเลือก ${b.affectedRows}`);
     },
   },
+  {
+    name: 'ต้นทุนอื่นต่อจาน (menus.extra_cost)',
+    async run() {
+      if (!(await columnExists('menus', 'extra_cost'))) {
+        await pool.query(
+          "ALTER TABLE `menus` ADD COLUMN `extra_cost` DECIMAL(10,2) NOT NULL DEFAULT 0 COMMENT 'ต้นทุนอื่นต่อจาน (กล่อง แก๊ส แก้ว) บวกกับต้นทุนวัตถุดิบ' AFTER `price`"
+        );
+        await pool.query('ALTER TABLE `menus` ADD CONSTRAINT `chk_menus_extra_cost` CHECK (`extra_cost` >= 0)');
+        console.log('  + เพิ่ม menus.extra_cost');
+      }
+    },
+  },
 ];
 
 (async () => {

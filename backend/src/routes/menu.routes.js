@@ -13,6 +13,8 @@ router.put('/:id', authorize('admin'), uploadMenuImage, asyncHandler(ctrl.update
 // เปลี่ยนสถานะพร้อมขาย/หมด — แคชเชียร์และครัวทำได้ด้วย
 router.patch('/:id/status', authorize('admin', 'cashier', 'kitchen'), asyncHandler(ctrl.updateStatus));
 router.delete('/:id', authorize('admin'), asyncHandler(ctrl.remove));
+// ต้นทุนอื่นต่อจาน (กล่อง แก๊ส แก้ว) — admin
+router.patch('/:id/extra-cost', authorize('admin'), asyncHandler(ctrl.setExtraCost));
 // สูตรอาหาร (ใช้ตัดสต็อกอัตโนมัติ) — admin/ครัวดูได้, admin แก้ไข
 router.get('/:id/recipe', authorize('admin', 'kitchen'), asyncHandler(ctrl.getRecipe));
 router.put('/:id/recipe', authorize('admin'), asyncHandler(ctrl.setRecipe));

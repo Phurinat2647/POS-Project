@@ -93,6 +93,7 @@ CREATE TABLE `menus` (
   `name_en`     VARCHAR(150) NULL COMMENT 'ชื่อภาษาอังกฤษ (แสดงเมื่อเลือกภาษา EN, ว่าง = ใช้ชื่อไทย)',
   `description` VARCHAR(500) NULL,
   `price`       DECIMAL(10,2) NOT NULL,
+  `extra_cost`  DECIMAL(10,2) NOT NULL DEFAULT 0 COMMENT 'ต้นทุนอื่นต่อจาน (กล่อง แก๊ส แก้ว) บวกกับต้นทุนวัตถุดิบ',
   `image_url`   VARCHAR(255) NULL,
   `status`      ENUM('available','sold_out') NOT NULL DEFAULT 'available',
   `auto_sold_out` TINYINT(1) NOT NULL DEFAULT 0,
@@ -105,7 +106,8 @@ CREATE TABLE `menus` (
   KEY `idx_menus_status` (`status`, `is_active`),
   CONSTRAINT `fk_menus_category` FOREIGN KEY (`category_id`) REFERENCES `categories` (`id`)
     ON UPDATE CASCADE ON DELETE RESTRICT,
-  CONSTRAINT `chk_menus_price` CHECK (`price` >= 0)
+  CONSTRAINT `chk_menus_price` CHECK (`price` >= 0),
+  CONSTRAINT `chk_menus_extra_cost` CHECK (`extra_cost` >= 0)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- ---------------------------------------------------------------------

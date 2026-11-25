@@ -29,6 +29,24 @@ const MENU_NAMES_EN = {
   น้ำอัดลม: 'Soft Drink',
   ชาเย็น: 'Thai Iced Tea',
   กาแฟเย็น: 'Thai Iced Coffee',
+  นมสด: 'Iced Fresh Milk',
+  ชาเขียว: 'Iced Green Tea Latte',
+  นมชมพู: 'Iced Pink Milk',
+  ชามะนาว: 'Iced Lemon Tea',
+  // อาหารคลีน
+  ข้าวกล้องอกไก่ย่างสมุนไพร: 'Grilled Herb Chicken Breast with Brown Rice',
+  สลัดอกไก่น้ำสลัดงา: 'Chicken Breast Salad with Sesame Dressing',
+  'ข้าวกล้องกะเพราอกไก่ (สูตรคลีน)': 'Clean Holy Basil Chicken with Brown Rice',
+  'ปลากะพงนึ่งมะนาว ข้าวกล้อง': 'Steamed Sea Bass with Lime & Brown Rice',
+  'ผัดผักรวม ข้าวไรซ์เบอร์รี่': 'Mixed Vegetable Stir-fry with Riceberry',
+  ต้มจืดเต้าหู้อกไก่สับ: 'Clear Soup with Tofu & Minced Chicken (No MSG)',
+  // น้ำปั่นคลีน
+  กรีนสมูทตี้ผักโขมกล้วย: 'Green Smoothie (Spinach & Banana)',
+  สมูทตี้เบอร์รี่โยเกิร์ต: 'Mixed Berry Yogurt Smoothie',
+  กล้วยโอ๊ตนมอัลมอนด์ปั่น: 'Banana Oat Almond Milk Smoothie',
+  มะม่วงเสาวรสปั่น: 'Mango Passion Fruit Smoothie',
+  แตงโมมะนาวปั่น: 'Watermelon Lime Slush',
+  อะโวคาโดนมอัลมอนด์ปั่น: 'Avocado Almond Milk Smoothie',
 };
 
 const OPTION_NAMES_EN = {
@@ -38,6 +56,17 @@ const OPTION_NAMES_EN = {
   ไข่เจียว: 'Omelette',
   ไข่ข้น: 'Creamy Scrambled Egg',
   เพิ่มกุ้ง: 'Extra Shrimp',
+  เพิ่มอกไก่: 'Extra Chicken Breast',
+  แก้วปกติ: 'Regular Cup',
+  แก้วใหญ่: 'Large Cup',
+  เพิ่มเวย์โปรตีน: 'Add Whey Protein',
+  เพิ่มเมล็ดเชีย: 'Add Chia Seeds',
+  ปั่น: 'Blended',
+  โคล่า: 'Cola',
+  น้ำแดง: 'Red Soda',
+  น้ำเขียว: 'Green Soda',
+  น้ำส้ม: 'Orange Soda',
+  น้ำใส: 'Lemon-Lime Soda',
 };
 
 /** ใส่ชื่ออังกฤษให้แถวที่ยังว่าง — conn: connection/pool ที่เลือกฐานข้อมูลแล้ว คืนจำนวนแถวที่อัปเดต */

@@ -31,7 +31,7 @@ export const canCancelOrder = (order) =>
   ['pending', 'preparing'].includes(order.status) && order.paymentStatus === 'unpaid';
 
 export const OPTION_TYPE = {
-  size: { label: t('ขนาด'), hint: t('เลือกได้ 1 อย่าง'), className: 'bg-indigo-100 text-indigo-800' },
+  size: { label: t('ขนาด/แบบ'), hint: t('เลือกได้ 1 อย่าง'), className: 'bg-indigo-100 text-indigo-800' },
   topping: { label: t('ท็อปปิ้ง'), hint: t('เลือกได้หลายอย่าง'), className: 'bg-orange-100 text-orange-800' },
 };
 

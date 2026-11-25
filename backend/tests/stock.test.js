@@ -75,12 +75,44 @@ describe('สูตรอาหาร', () => {
          FROM menus m LEFT JOIN menu_ingredients mi ON mi.menu_id = m.id LEFT JOIN ingredients i ON i.id = mi.ingredient_id
         WHERE m.name <> 'เมนูทดสอบสต็อก' GROUP BY m.id`
     );
-    assert.equal(rows.length, 23);
+    assert.equal(rows.length, 39); // 23 เดิม + อาหารคลีน 6 + น้ำปั่นคลีน 6 + เครื่องดื่ม 4
     for (const r of rows) {
+      if (r.name === 'น้ำอัดลม') continue; // ตัดสต็อกตามรสที่เลือก (ตัวเลือก) ไม่มีสูตรของเมนู
       assert.ok(Number(r.n) > 0, `${r.name} ไม่มีสูตร`);
       assert.ok(r.min_stock > 0, `${r.name} มีวัตถุดิบยอด 0`);
       if (r.name !== 'สุกี้แห้งหมู') assert.equal(r.status, 'available', `${r.name} ควรพร้อมขาย`); // สุกี้แห้งหมูตั้งเป็นหมดใน seed
     }
+  });
+
+  test('ติดตั้งใหม่: หมวดอาหารคลีน/น้ำปั่นคลีน มีเมนู ชื่ออังกฤษ และตัวเลือกที่ตัดสต็อก', async () => {
+    const [menus] = await ctx.pool.query(
+      `SELECT c.name AS cat, COUNT(*) AS n, COUNT(m.name_en) AS n_en
+         FROM menus m JOIN categories c ON c.id = m.category_id
+        WHERE c.name IN ('อาหารคลีน', 'น้ำปั่นคลีน') GROUP BY c.id ORDER BY c.sort_order`
+    );
+    assert.deepEqual(
+      menus.map((r) => [r.cat, Number(r.n), Number(r.n_en)]),
+      [
+        ['อาหารคลีน', 6, 6],
+        ['น้ำปั่นคลีน', 6, 6],
+      ]
+    );
+    const [opts] = await ctx.pool.query(
+      `SELECT o.name, o.name_en, o.is_default, o.recipe_extra_percent AS pct,
+              (SELECT COUNT(*) FROM option_ingredients oi WHERE oi.option_id = o.id) AS items
+         FROM menu_options o JOIN categories c ON c.id = o.category_id
+        WHERE c.name IN ('อาหารคลีน', 'น้ำปั่นคลีน') ORDER BY c.sort_order, o.sort_order`
+    );
+    assert.deepEqual(
+      opts.map((o) => [o.name, o.name_en, Number(o.is_default), Number(o.pct), Number(o.items)]),
+      [
+        ['เพิ่มอกไก่', 'Extra Chicken Breast', 0, 0, 1],
+        ['แก้วปกติ', 'Regular Cup', 1, 0, 0],
+        ['แก้วใหญ่', 'Large Cup', 0, 50, 0],
+        ['เพิ่มเวย์โปรตีน', 'Add Whey Protein', 0, 0, 1],
+        ['เพิ่มเมล็ดเชีย', 'Add Chia Seeds', 0, 0, 1],
+      ]
+    );
   });
 
   test('สูตรมาตรฐานจาก recipes.js ถูกใส่ให้กะเพราหมูสับ', async () => {
