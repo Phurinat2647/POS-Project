@@ -3,9 +3,11 @@ import { Plus, Sparkles, Trash2 } from 'lucide-react';
 import Modal from './Modal';
 import { ErrorState, LoadingState } from './States';
 import { getMenuRecipe, saveMenuRecipe } from '../services/menu.service';
+import { getOptionRecipe, saveOptionRecipe } from '../services/menuOption.service';
 import { getIngredients } from '../services/inventory.service';
 import { toastSuccess } from '../utils/alert';
 import { formatNumber } from '../utils/format';
+import { localName, t, tApi } from '../i18n';
 
 const norm = (s) => String(s || '').trim().toLowerCase();
 
@@ -13,8 +15,10 @@ const norm = (s) => String(s || '').trim().toLowerCase();
  * สูตรวัตถุดิบของเมนู (ต่อ 1 จาน) — ใช้ตัดสต็อกอัตโนมัติเมื่อส่งออเดอร์เข้าครัว
  * readOnly: ครัวดูได้อย่างเดียว, admin แก้ไขได้
  * ช่องวัตถุดิบพิมพ์ได้เอง (มีรายชื่อแนะนำ) — ถ้าเป็นชื่อใหม่ต้องใส่หน่วยนับ แล้ว backend สร้างวัตถุดิบให้ตอนบันทึกสูตร
+ * ส่ง option แทน menu = วัตถุดิบของตัวเลือก (เช่น ไข่ดาว) + "เพิ่มตามสูตรเมนู %" (เช่น พิเศษ = 50)
  */
-export default function RecipeModal({ menu, readOnly, onClose, onSaved }) {
+export default function RecipeModal({ menu, option, readOnly, onClose, onSaved }) {
+  const [extraPercent, setExtraPercent] = useState('0');
   const listId = useId();
   const unitListId = useId();
   const [rows, setRows] = useState([]); // [{ key, name, quantity, unit (ใช้เมื่อเป็นวัตถุดิบใหม่) }]
@@ -28,10 +32,12 @@ export default function RecipeModal({ menu, readOnly, onClose, onSaved }) {
     setLoading(true);
     setLoadError(null);
     try {
-      const [recipe, ings] = await Promise.all([
-        getMenuRecipe(menu.id),
+      const [data, ings] = await Promise.all([
+        option ? getOptionRecipe(option.id) : getMenuRecipe(menu.id),
         readOnly ? Promise.resolve([]) : getIngredients({ includeInactive: true }),
       ]);
+      const recipe = option ? data.items : data;
+      if (option) setExtraPercent(String(data.extraPercent ?? 0));
       setIngredients(ings);
       setRows(
         recipe.map((r) => ({
@@ -48,7 +54,7 @@ export default function RecipeModal({ menu, readOnly, onClose, onSaved }) {
     } finally {
       setLoading(false);
     }
-  }, [menu.id, readOnly]);
+  }, [menu?.id, option?.id, readOnly]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     load();
@@ -67,27 +73,29 @@ export default function RecipeModal({ menu, readOnly, onClose, onSaved }) {
     const items = rows.filter((r) => r.name.trim() || r.quantity);
     const payload = [];
     for (const [i, r] of items.entries()) {
-      const label = `รายการที่ ${i + 1}`;
-      if (!r.name.trim()) return setError(`กรุณาพิมพ์ชื่อวัตถุดิบ${label}`);
-      if (!(Number(r.quantity) > 0)) return setError(`ปริมาณ${label} ต้องมากกว่า 0`);
+      const label = t('รายการที่ {0}', [i + 1]);
+      if (!r.name.trim()) return setError(t('กรุณาพิมพ์ชื่อวัตถุดิบ{0}', [label]));
+      if (!(Number(r.quantity) > 0)) return setError(t('ปริมาณ{0} ต้องมากกว่า 0', [label]));
       const found = match(r.name);
       if (found && !found.isActive) {
-        return setError(`วัตถุดิบ "${found.name}" ถูกปิดใช้งานอยู่ — เปิดใช้งานที่หน้าคลังวัตถุดิบ หรือลบออกจากสูตร`);
+        return setError(t('วัตถุดิบ "{0}" ถูกปิดใช้งานอยู่ — เปิดใช้งานที่หน้าคลังวัตถุดิบ หรือลบออกจากสูตร', [found.name]));
       }
       if (found) payload.push({ ingredientId: found.id, quantity: Number(r.quantity) });
       else {
-        if (!r.unit.trim()) return setError(`กรุณาใส่หน่วยนับของวัตถุดิบใหม่ "${r.name.trim()}"`);
+        if (!r.unit.trim()) return setError(t('กรุณาใส่หน่วยนับของวัตถุดิบใหม่ "{0}"', [r.name.trim()]));
         payload.push({ name: r.name.trim(), unit: r.unit.trim(), quantity: Number(r.quantity) });
       }
     }
-    if (new Set(items.map((r) => norm(r.name))).size !== items.length) return setError('มีวัตถุดิบซ้ำกันในสูตร');
+    if (new Set(items.map((r) => norm(r.name))).size !== items.length) return setError(t('มีวัตถุดิบซ้ำกันในสูตร'));
+    const pct = Number(extraPercent || 0);
+    if (option && !(pct >= 0 && pct <= 500)) return setError(t('เพิ่มตามสูตรเมนูต้องอยู่ระหว่าง 0-500%'));
 
     setSaving(true);
     setError(null);
     try {
-      const res = await saveMenuRecipe(menu.id, payload);
+      const res = option ? await saveOptionRecipe(option.id, { extraPercent: pct, items: payload }) : await saveMenuRecipe(menu.id, payload);
       const newCount = payload.filter((p) => !p.ingredientId).length;
-      toastSuccess(newCount ? `${res.message} (เพิ่มวัตถุดิบใหม่ ${newCount} รายการในคลัง)` : res.message);
+      toastSuccess(newCount ? t('{0} (เพิ่มวัตถุดิบใหม่ {1} รายการในคลัง)', [tApi(res.message), newCount]) : res.message);
       onSaved?.(); // สถานะเมนูอาจเปลี่ยนเป็น "หมด" ถ้าวัตถุดิบไม่พอ
       onClose();
     } catch (err) {
@@ -99,21 +107,21 @@ export default function RecipeModal({ menu, readOnly, onClose, onSaved }) {
   return (
     <Modal
       open
-      title={`สูตรวัตถุดิบ — ${menu.name}`}
+      title={option ? t('วัตถุดิบของตัวเลือก — {0}', [localName(option)]) : t('สูตรวัตถุดิบ — {0}', [localName(menu)])}
       onClose={onClose}
       busy={saving}
       footer={
         readOnly ? (
           <button className="btn-outline" onClick={onClose}>
-            ปิด
+            {t('ปิด')}
           </button>
         ) : (
           <>
             <button className="btn-outline" onClick={onClose} disabled={saving}>
-              ยกเลิก
+              {t('ยกเลิก')}
             </button>
             <button className="btn-primary" onClick={save} disabled={saving || loading || !!loadError}>
-              {saving ? 'กำลังบันทึก...' : 'บันทึกสูตร'}
+              {saving ? t('กำลังบันทึก...') : t('บันทึกสูตร')}
             </button>
           </>
         )
@@ -125,15 +133,45 @@ export default function RecipeModal({ menu, readOnly, onClose, onSaved }) {
         <ErrorState message={loadError} onRetry={load} />
       ) : (
         <div className="space-y-3">
-          <p className="text-sm text-slate-500">
-            ปริมาณที่ใช้ต่อ <b>1 จาน</b> — ระบบตัดสต็อกอัตโนมัติเมื่อส่งออเดอร์เข้าครัว และคืนสต็อกเมื่อยกเลิกออเดอร์
-            {!readOnly && ' (วัตถุดิบไม่พอทำ 1 จาน เมนูจะถูกตั้งเป็นหมดจนกว่าจะรับเข้า)'}
-          </p>
+          {option ? (
+            <>
+              <p className="text-sm text-slate-500">
+                {t('เมื่อลูกค้าเลือก')} <b>{localName(option)}</b> {t('ระบบตัดสต็อกเพิ่มจากสูตรของเมนูที่สั่ง — ทั้ง 2 แบบใช้ร่วมกันได้ และคูณตามจำนวนจาน')}
+              </p>
+              <div className="rounded-xl border border-slate-200 p-3">
+                <label className="label" htmlFor="opt-extra-pct">{t('เพิ่มตามสูตรของเมนู (%)')}</label>
+                <div className="flex items-center gap-2">
+                  <input
+                    id="opt-extra-pct"
+                    type="number"
+                    inputMode="decimal"
+                    min="0"
+                    max="500"
+                    step="1"
+                    className="input w-28 text-right"
+                    value={extraPercent}
+                    onChange={(e) => setExtraPercent(e.target.value)}
+                    disabled={readOnly}
+                  />
+                  <span className="text-sm text-slate-500">%</span>
+                </div>
+                <p className="mt-1 text-xs text-slate-500">
+                  {t('เช่น "พิเศษ" = 50 → กะเพราหมูสับที่ใช้หมู 100 กรัม จะตัด 150 กรัม (ทุกวัตถุดิบในสูตรเมนู) — ใส่ 0 ถ้าไม่เพิ่ม')}
+                </p>
+              </div>
+              <p className="text-sm font-medium">{t('วัตถุดิบที่ใช้เพิ่มต่อ 1 จาน')} <span className="font-normal text-slate-500">{t('(เช่น ไข่ดาว = ไข่ไก่ 1 ฟอง)')}</span></p>
+            </>
+          ) : (
+            <p className="text-sm text-slate-500">
+              {t('ปริมาณที่ใช้ต่อ')} <b>{t('1 จาน')}</b> {t('— ระบบตัดสต็อกอัตโนมัติเมื่อส่งออเดอร์เข้าครัว และคืนสต็อกเมื่อยกเลิกออเดอร์')}
+              {!readOnly && t(' (วัตถุดิบไม่พอทำ 1 จาน เมนูจะถูกตั้งเป็นหมดจนกว่าจะรับเข้า)')}
+            </p>
+          )}
           {error && <div role="alert" className="rounded-xl bg-red-50 px-3 py-2 text-sm text-danger">{error}</div>}
 
           {rows.length === 0 && (
             <div className="rounded-xl border border-dashed border-slate-300 px-4 py-6 text-center text-sm text-slate-500">
-              ยังไม่มีสูตร — เมนูนี้จะไม่ตัดสต็อก
+              {option ? t('ไม่มีวัตถุดิบเพิ่ม') : t('ยังไม่มีสูตร — เมนูนี้จะไม่ตัดสต็อก')}
             </div>
           )}
 
@@ -176,8 +214,8 @@ export default function RecipeModal({ menu, readOnly, onClose, onSaved }) {
                         list={listId}
                         value={r.name}
                         onChange={(e) => update(r.key, 'name', e.target.value)}
-                        placeholder="พิมพ์ชื่อวัตถุดิบ หรือเลือกจากรายการ"
-                        aria-label={`ชื่อวัตถุดิบรายการที่ ${i + 1}`}
+                        placeholder={t('พิมพ์ชื่อวัตถุดิบ หรือเลือกจากรายการ')}
+                        aria-label={t('ชื่อวัตถุดิบรายการที่ {0}', [i + 1])}
                         maxLength={150}
                         autoFocus={r.key.startsWith('new-')}
                       />
@@ -190,8 +228,8 @@ export default function RecipeModal({ menu, readOnly, onClose, onSaved }) {
                           className="input w-24 min-w-0 text-right"
                           value={r.quantity}
                           onChange={(e) => update(r.key, 'quantity', e.target.value)}
-                          aria-label={`ปริมาณรายการที่ ${i + 1}`}
-                          placeholder="ปริมาณ"
+                          aria-label={t('ปริมาณรายการที่ {0}', [i + 1])}
+                          placeholder={t('ปริมาณ')}
                         />
                         {isNew ? (
                           <input
@@ -199,8 +237,8 @@ export default function RecipeModal({ menu, readOnly, onClose, onSaved }) {
                             list={unitListId}
                             value={r.unit}
                             onChange={(e) => update(r.key, 'unit', e.target.value)}
-                            placeholder="หน่วย"
-                            aria-label={`หน่วยนับของวัตถุดิบใหม่รายการที่ ${i + 1}`}
+                            placeholder={t('หน่วย')}
+                            aria-label={t('หน่วยนับของวัตถุดิบใหม่รายการที่ {0}', [i + 1])}
                             maxLength={20}
                           />
                         ) : (
@@ -210,24 +248,24 @@ export default function RecipeModal({ menu, readOnly, onClose, onSaved }) {
                       <button
                         className="btn-icon shrink-0 hover:text-danger"
                         onClick={() => removeRow(r.key)}
-                        aria-label={`ลบรายการที่ ${i + 1}`}
+                        aria-label={t('ลบรายการที่ {0}', [i + 1])}
                       >
                         <Trash2 size={16} />
                       </button>
                     </div>
                     {isNew && (
                       <p className="mt-1 flex items-center gap-1 text-xs text-primary-800">
-                        <Sparkles size={12} /> วัตถุดิบใหม่ — จะถูกเพิ่มในคลัง (คงเหลือ 0) เมื่อบันทึกสูตร
+                        <Sparkles size={12} /> {t('วัตถุดิบใหม่ — จะถูกเพิ่มในคลัง (คงเหลือ 0) เมื่อบันทึกสูตร')}
                       </p>
                     )}
                     {found && !found.isActive && (
-                      <p className="mt-1 text-xs text-danger">วัตถุดิบนี้ถูกปิดใช้งาน — เปิดใช้งานที่หน้าคลังวัตถุดิบ หรือลบออกจากสูตร</p>
+                      <p className="mt-1 text-xs text-danger">{t('วัตถุดิบนี้ถูกปิดใช้งาน — เปิดใช้งานที่หน้าคลังวัตถุดิบ หรือลบออกจากสูตร')}</p>
                     )}
                   </div>
                 );
               })}
               <button className="btn-outline w-full" onClick={addRow}>
-                <Plus size={16} /> เพิ่มวัตถุดิบ
+                <Plus size={16} /> {t('เพิ่มวัตถุดิบ')}
               </button>
             </>
           )}

@@ -17,14 +17,19 @@ const toOption = (r) => ({
   categoryName: r.category_name ?? null,
   optionType: r.option_type,
   name: r.name,
+  nameEn: r.name_en ?? null,
   extraPrice: r.extra_price,
   isDefault: !!r.is_default,
   sortOrder: r.sort_order,
   isActive: !!r.is_active,
+  // ตัดสต็อก: เพิ่มตามสูตรเมนู % + จำนวนวัตถุดิบที่ใช้เพิ่ม (แก้ที่ recipe.service.setOptionRecipe)
+  recipeExtraPercent: r.recipe_extra_percent ?? 0,
+  recipeItemCount: Number(r.recipe_item_count ?? 0),
 });
 
 const BASE_SELECT = `
-  SELECT o.*, m.name AS menu_name, c.name AS category_name
+  SELECT o.*, m.name AS menu_name, c.name AS category_name,
+         (SELECT COUNT(*) FROM option_ingredients oi WHERE oi.option_id = o.id) AS recipe_item_count
     FROM menu_options o
     LEFT JOIN menus m ON m.id = o.menu_id
     LEFT JOIN categories c ON c.id = o.category_id`;
@@ -100,9 +105,9 @@ async function create(data) {
     await assertScopeTarget(conn, data);
     const isDefault = data.optionType === 'size' && data.isDefault;
     const [r] = await conn.query(
-      `INSERT INTO menu_options (menu_id, category_id, option_type, name, extra_price, is_default, sort_order, is_active)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-      [data.menuId, data.categoryId, data.optionType, data.name, data.extraPrice, isDefault ? 1 : 0, data.sortOrder, data.isActive ? 1 : 0]
+      `INSERT INTO menu_options (menu_id, category_id, option_type, name, name_en, extra_price, is_default, sort_order, is_active)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [data.menuId, data.categoryId, data.optionType, data.name, data.nameEn, data.extraPrice, isDefault ? 1 : 0, data.sortOrder, data.isActive ? 1 : 0]
     );
     if (isDefault) await clearOtherDefaults(conn, { id: r.insertId, ...data });
     return getById(r.insertId, conn);
@@ -116,9 +121,9 @@ async function update(id, data) {
     const isDefault = data.optionType === 'size' && data.isDefault;
     await conn.query(
       `UPDATE menu_options
-          SET menu_id = ?, category_id = ?, option_type = ?, name = ?, extra_price = ?, is_default = ?, sort_order = ?, is_active = ?
+          SET menu_id = ?, category_id = ?, option_type = ?, name = ?, name_en = ?, extra_price = ?, is_default = ?, sort_order = ?, is_active = ?
         WHERE id = ?`,
-      [data.menuId, data.categoryId, data.optionType, data.name, data.extraPrice, isDefault ? 1 : 0, data.sortOrder, data.isActive ? 1 : 0, id]
+      [data.menuId, data.categoryId, data.optionType, data.name, data.nameEn, data.extraPrice, isDefault ? 1 : 0, data.sortOrder, data.isActive ? 1 : 0, id]
     );
     if (isDefault) await clearOtherDefaults(conn, { id, ...data });
     return getById(id, conn);

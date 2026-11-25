@@ -7,13 +7,19 @@
  * - ไม่แก้ไขวัตถุดิบที่มีอยู่แล้ว (หน่วย ยอดคงเหลือ ต้นทุน คงเดิม)
  * - ทำใน transaction เดียว — ผิดพลาดจะไม่มีอะไรเปลี่ยน
  */
-const { INGREDIENTS, RECIPES } = require('../database/recipes');
+const { INGREDIENTS, RECIPES, OPTION_RECIPES } = require('../database/recipes');
 
 const toMilli = (v) => Math.round(Number(v) * 1000);
 
 function validateData() {
   const names = new Set(INGREDIENTS.map(([name]) => name));
-  for (const [menu, items] of Object.entries(RECIPES)) {
+  for (const [opt, { extraPercent, items }] of Object.entries(OPTION_RECIPES)) {
+    if (!(extraPercent >= 0 && extraPercent <= 500)) throw new Error(`recipes.js: extraPercent ของตัวเลือก "${opt}" ต้องอยู่ระหว่าง 0-500`);
+    for (const ing of Object.keys(items)) {
+      if (!names.has(ing)) throw new Error(`recipes.js: วัตถุดิบ "${ing}" ของตัวเลือก "${opt}" ไม่อยู่ใน INGREDIENTS`);
+    }
+  }
+  for (const [menu, items] of [...Object.entries(RECIPES), ...Object.entries(OPTION_RECIPES).map(([k, o]) => [k, o.items])]) {
     for (const [ing, qty] of Object.entries(items)) {
       if (!names.has(ing)) throw new Error(`recipes.js: วัตถุดิบ "${ing}" ของเมนู "${menu}" ไม่อยู่ใน INGREDIENTS`);
       if (!(qty > 0) || Math.abs(toMilli(qty) - qty * 1000) > 1e-6) {
@@ -30,12 +36,12 @@ function validateData() {
  */
 async function applyRecipes(conn, { replace = false, withStock = false } = {}) {
   validateData();
-  const report = { createdIngredients: [], filled: [], skippedHasRecipe: [], missingMenus: [] };
+  const report = { createdIngredients: [], filled: [], skippedHasRecipe: [], missingMenus: [], options: [], skippedOptions: [] };
 
   // 1) วัตถุดิบที่ยังไม่มี
   const [existing] = await conn.query('SELECT id, name FROM ingredients');
   const ingId = new Map(existing.map((r) => [r.name, r.id]));
-  const needed = new Set(Object.values(RECIPES).flatMap((items) => Object.keys(items)));
+  const needed = new Set([...Object.values(RECIPES), ...Object.values(OPTION_RECIPES).map((o) => o.items)].flatMap((items) => Object.keys(items)));
   for (const [name, unit, minQty, cost, demoStock] of INGREDIENTS) {
     if (ingId.has(name) || !needed.has(name)) continue;
     const qty = withStock ? demoStock : 0;
@@ -76,6 +82,30 @@ async function applyRecipes(conn, { replace = false, withStock = false } = {}) {
     ]);
     report.filled.push(`${menuName} (${Object.keys(items).length})`);
   }
+
+  // 3) สูตรของตัวเลือก (จับคู่ด้วยชื่อ — ทุกตัวเลือกที่ชื่อตรง) ข้ามตัวที่ตั้งค่าไว้แล้วถ้าไม่ใช่ --replace
+  const [options] = await conn.query(
+    `SELECT o.id, o.name, o.recipe_extra_percent,
+            (SELECT COUNT(*) FROM option_ingredients oi WHERE oi.option_id = o.id) AS n
+       FROM menu_options o`
+  );
+  for (const opt of options) {
+    const def = OPTION_RECIPES[opt.name];
+    if (!def) continue;
+    if ((Number(opt.n) > 0 || Number(opt.recipe_extra_percent) > 0) && !replace) {
+      report.skippedOptions.push(opt.name);
+      continue;
+    }
+    await conn.query('UPDATE menu_options SET recipe_extra_percent = ? WHERE id = ?', [def.extraPercent, opt.id]);
+    await conn.query('DELETE FROM option_ingredients WHERE option_id = ?', [opt.id]);
+    const entries = Object.entries(def.items);
+    if (entries.length) {
+      await conn.query('INSERT INTO option_ingredients (option_id, ingredient_id, quantity) VALUES ?', [
+        entries.map(([ing, qty]) => [opt.id, ingId.get(ing), qty]),
+      ]);
+    }
+    report.options.push(opt.name);
+  }
   return report;
 }
 
@@ -85,6 +115,9 @@ function printReport(report) {
   if (report.skippedHasRecipe.length) {
     console.log(`  ข้าม (มีสูตรอยู่แล้ว — ใช้ --replace เพื่อแทนที่) ${report.skippedHasRecipe.length} เมนู: ${report.skippedHasRecipe.join(', ')}`);
   }
+  const count = (arr) => Object.entries(arr.reduce((m, n) => ({ ...m, [n]: (m[n] || 0) + 1 }), {})).map(([n, c]) => `${n} x${c}`).join(', ');
+  console.log(`  ใส่สูตรตัวเลือกแล้ว ${report.options.length} รายการ${report.options.length ? `: ${count(report.options)}` : ''}`);
+  if (report.skippedOptions.length) console.log(`  ข้ามตัวเลือกที่ตั้งค่าไว้แล้ว: ${count(report.skippedOptions)}`);
   if (report.missingMenus.length) console.log(`  ไม่พบเมนูชื่อนี้ในระบบ: ${report.missingMenus.join(', ')}`);
 }
 

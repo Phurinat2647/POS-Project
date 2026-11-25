@@ -13,6 +13,7 @@ function parseBody(body = {}) {
   return {
     categoryId: v.id(body.categoryId, 'หมวดหมู่'),
     name: v.requiredString(body.name, 'ชื่อเมนู', 150),
+    nameEn: v.optionalString(body.nameEn, 'ชื่อภาษาอังกฤษ', 150),
     description: v.optionalString(body.description, 'คำอธิบาย', 500),
     price: v.money(body.price, 'ราคา'),
     status: v.oneOf(body.status || 'available', STATUSES, 'สถานะ'),
@@ -90,21 +91,7 @@ async function getRecipe(req, res) {
  * { items: [{ ingredientId, quantity }] } หรือวัตถุดิบใหม่ที่พิมพ์เอง { name, unit, quantity }
  */
 async function setRecipe(req, res) {
-  const raw = req.body?.items;
-  if (!Array.isArray(raw)) throw ApiError.badRequest('รายการวัตถุดิบไม่ถูกต้อง');
-  if (raw.length > MAX_RECIPE_ITEMS) throw ApiError.badRequest(`ใส่วัตถุดิบได้ไม่เกิน ${MAX_RECIPE_ITEMS} รายการ`);
-  const items = raw.map((r, i) => {
-    const label = `รายการที่ ${i + 1}`;
-    const quantity = v.quantity(r?.quantity, `ปริมาณ${label}`, { positive: true, max: 99999.999 });
-    if (r?.ingredientId !== undefined && r?.ingredientId !== null && r?.ingredientId !== '') {
-      return { ingredientId: v.id(r.ingredientId, `วัตถุดิบ${label}`), quantity };
-    }
-    return {
-      name: v.requiredString(r?.name, `ชื่อวัตถุดิบ${label}`, 150),
-      unit: v.requiredString(r?.unit, `หน่วยนับของวัตถุดิบ${label}`, 20),
-      quantity,
-    };
-  });
+  const items = parseRecipeItems(req.body?.items);
   const menuId = v.id(req.params.id);
   const data = await recipeService.setRecipe(menuId, items);
   const { soldOut } = await menuAvailability.syncAndNotify();
@@ -117,4 +104,22 @@ async function setRecipe(req, res) {
   });
 }
 
-module.exports = { list, getOne, create, update, updateStatus, remove, getRecipe, setRecipe };
+/** ตรวจรายการวัตถุดิบในสูตร (ใช้ทั้งสูตรเมนูและสูตรตัวเลือก) */
+function parseRecipeItems(raw) {
+  if (!Array.isArray(raw)) throw ApiError.badRequest('รายการวัตถุดิบไม่ถูกต้อง');
+  if (raw.length > MAX_RECIPE_ITEMS) throw ApiError.badRequest(`ใส่วัตถุดิบได้ไม่เกิน ${MAX_RECIPE_ITEMS} รายการ`);
+  return raw.map((r, i) => {
+    const label = `รายการที่ ${i + 1}`;
+    const quantity = v.quantity(r?.quantity, `ปริมาณ${label}`, { positive: true, max: 99999.999 });
+    if (r?.ingredientId !== undefined && r?.ingredientId !== null && r?.ingredientId !== '') {
+      return { ingredientId: v.id(r.ingredientId, `วัตถุดิบ${label}`), quantity };
+    }
+    return {
+      name: v.requiredString(r?.name, `ชื่อวัตถุดิบ${label}`, 150),
+      unit: v.requiredString(r?.unit, `หน่วยนับของวัตถุดิบ${label}`, 20),
+      quantity,
+    };
+  });
+}
+
+module.exports = { list, getOne, create, update, updateStatus, remove, getRecipe, setRecipe, parseRecipeItems };

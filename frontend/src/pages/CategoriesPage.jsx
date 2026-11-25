@@ -5,6 +5,7 @@ import Modal from '../components/Modal';
 import { EmptyState, ErrorState, LoadingState } from '../components/States';
 import { createCategory, deleteCategory, getCategories, updateCategory } from '../services/category.service';
 import { confirmDelete, showError, toastSuccess } from '../utils/alert';
+import { t } from '../i18n';
 
 const EMPTY = { name: '', description: '', sortOrder: 0, isActive: true };
 
@@ -33,10 +34,10 @@ export default function CategoriesPage() {
 
   const handleDelete = async (cat) => {
     if (cat.menuCount > 0) {
-      showError(`หมวด "${cat.name}" ยังมีเมนู ${cat.menuCount} รายการ กรุณาย้ายหรือลบเมนูก่อน`, 'ไม่สามารถลบได้');
+      showError(t('หมวด "{0}" ยังมีเมนู {1} รายการ กรุณาย้ายหรือลบเมนูก่อน', [cat.name, cat.menuCount]), t('ไม่สามารถลบได้'));
       return;
     }
-    if (!(await confirmDelete(`ลบหมวด "${cat.name}"?`, 'การลบไม่สามารถย้อนกลับได้'))) return;
+    if (!(await confirmDelete(t('ลบหมวด "{0}"?', [cat.name]), t('การลบไม่สามารถย้อนกลับได้')))) return;
     try {
       const res = await deleteCategory(cat.id);
       toastSuccess(res.message);
@@ -49,11 +50,11 @@ export default function CategoriesPage() {
   return (
     <div className="mx-auto max-w-5xl">
       <PageHeader
-        title="หมวดหมู่อาหาร"
-        description="จัดกลุ่มเมนูสำหรับหน้าขายและรายงาน"
+        title={t('หมวดหมู่อาหาร')}
+        description={t('จัดกลุ่มเมนูสำหรับหน้าขายและรายงาน')}
         actions={
           <button className="btn-primary" onClick={() => setEditing(EMPTY)}>
-            <Plus size={16} /> เพิ่มหมวดหมู่
+            <Plus size={16} /> {t('เพิ่มหมวดหมู่')}
           </button>
         }
       />
@@ -62,7 +63,7 @@ export default function CategoriesPage() {
         <div className="flex items-center justify-end border-b border-slate-200 px-4 py-2.5">
           <label className="flex items-center gap-2 text-sm text-slate-600">
             <input type="checkbox" checked={showInactive} onChange={(e) => setShowInactive(e.target.checked)} className="accent-primary-800" />
-            แสดงหมวดที่ปิดใช้งาน
+            {t('แสดงหมวดที่ปิดใช้งาน')}
           </label>
         </div>
 
@@ -71,16 +72,16 @@ export default function CategoriesPage() {
         ) : error ? (
           <ErrorState message={error} onRetry={load} />
         ) : items.length === 0 ? (
-          <EmptyState text="ยังไม่มีหมวดหมู่" />
+          <EmptyState text={t('ยังไม่มีหมวดหมู่')} />
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full min-w-[560px] text-sm">
               <thead className="bg-slate-50 text-left text-xs text-slate-500">
                 <tr>
-                  <th className="w-16 px-4 py-2.5 font-medium">ลำดับ</th>
-                  <th className="px-4 py-2.5 font-medium">ชื่อหมวดหมู่</th>
-                  <th className="px-4 py-2.5 text-right font-medium">จำนวนเมนู</th>
-                  <th className="px-4 py-2.5 font-medium">สถานะ</th>
+                  <th className="w-16 px-4 py-2.5 font-medium">{t('ลำดับ')}</th>
+                  <th className="px-4 py-2.5 font-medium">{t('ชื่อหมวดหมู่')}</th>
+                  <th className="px-4 py-2.5 text-right font-medium">{t('จำนวนเมนู')}</th>
+                  <th className="px-4 py-2.5 font-medium">{t('สถานะ')}</th>
                   <th className="w-24 px-4 py-2.5" />
                 </tr>
               </thead>
@@ -95,15 +96,15 @@ export default function CategoriesPage() {
                     <td className="px-4 py-3 text-right tabular-nums">{c.menuCount}</td>
                     <td className="px-4 py-3">
                       <span className={`badge ${c.isActive ? 'bg-green-100 text-green-800' : 'bg-slate-200 text-slate-600'}`}>
-                        {c.isActive ? 'ใช้งาน' : 'ปิดใช้งาน'}
+                        {c.isActive ? t('ใช้งาน') : t('ปิดใช้งาน')}
                       </span>
                     </td>
                     <td className="px-4 py-3">
                       <div className="flex justify-end gap-1">
-                        <button className="btn-icon" onClick={() => setEditing(c)} aria-label={`แก้ไข ${c.name}`}>
+                        <button className="btn-icon" onClick={() => setEditing(c)} aria-label={t('แก้ไข {0}', [c.name])}>
                           <Pencil size={16} />
                         </button>
-                        <button className="btn-icon hover:text-danger" onClick={() => handleDelete(c)} aria-label={`ลบ ${c.name}`}>
+                        <button className="btn-icon hover:text-danger" onClick={() => handleDelete(c)} aria-label={t('ลบ {0}', [c.name])}>
                           <Trash2 size={16} />
                         </button>
                       </div>
@@ -144,7 +145,7 @@ function CategoryForm({ initial, onClose, onSaved }) {
 
   const submit = async (e) => {
     e.preventDefault();
-    if (!form.name.trim()) return setError('กรุณากรอกชื่อหมวดหมู่');
+    if (!form.name.trim()) return setError(t('กรุณากรอกชื่อหมวดหมู่'));
     setSaving(true);
     setError(null);
     try {
@@ -161,17 +162,17 @@ function CategoryForm({ initial, onClose, onSaved }) {
   return (
     <Modal
       open
-      title={isEdit ? 'แก้ไขหมวดหมู่' : 'เพิ่มหมวดหมู่'}
+      title={isEdit ? t('แก้ไขหมวดหมู่') : t('เพิ่มหมวดหมู่')}
       onClose={onClose}
       busy={saving}
       size="sm"
       footer={
         <>
           <button className="btn-outline" onClick={onClose} disabled={saving}>
-            ยกเลิก
+            {t('ยกเลิก')}
           </button>
           <button className="btn-primary" type="submit" form="category-form" disabled={saving}>
-            {saving ? 'กำลังบันทึก...' : 'บันทึก'}
+            {saving ? t('กำลังบันทึก...') : t('บันทึก')}
           </button>
         </>
       }
@@ -179,21 +180,21 @@ function CategoryForm({ initial, onClose, onSaved }) {
       <form id="category-form" onSubmit={submit} className="space-y-4" noValidate>
         {error && <div role="alert" className="rounded-xl bg-red-50 px-3 py-2 text-sm text-danger">{error}</div>}
         <div>
-          <label className="label" htmlFor="cat-name">ชื่อหมวดหมู่ *</label>
+          <label className="label" htmlFor="cat-name">{t('ชื่อหมวดหมู่ *')}</label>
           <input id="cat-name" className="input" value={form.name} onChange={set('name')} maxLength={100} autoFocus />
         </div>
         <div>
-          <label className="label" htmlFor="cat-desc">คำอธิบาย</label>
+          <label className="label" htmlFor="cat-desc">{t('คำอธิบาย')}</label>
           <input id="cat-desc" className="input" value={form.description} onChange={set('description')} maxLength={255} />
         </div>
         <div>
-          <label className="label" htmlFor="cat-sort">ลำดับการแสดงผล</label>
+          <label className="label" htmlFor="cat-sort">{t('ลำดับการแสดงผล')}</label>
           <input id="cat-sort" type="number" min={0} className="input" value={form.sortOrder} onChange={set('sortOrder')} />
         </div>
         {isEdit && (
           <label className="flex items-center gap-2 text-sm">
             <input type="checkbox" checked={form.isActive} onChange={set('isActive')} className="accent-primary-800" />
-            เปิดใช้งาน
+            {t('เปิดใช้งาน')}
           </label>
         )}
       </form>

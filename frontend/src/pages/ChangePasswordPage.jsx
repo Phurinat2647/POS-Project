@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { KeyRound, Loader2 } from 'lucide-react';
 import Swal from 'sweetalert2';
 import { changePassword } from '../services/auth.service';
+import { t, tApi } from '../i18n';
 
 const MIN_LENGTH = 8;
 const inputClass =
@@ -16,18 +17,18 @@ export default function ChangePasswordPage() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!form.current || !form.next || !form.confirm) return setError('กรุณากรอกข้อมูลให้ครบถ้วน');
-    if (form.next.length < MIN_LENGTH) return setError(`รหัสผ่านใหม่ต้องมีอย่างน้อย ${MIN_LENGTH} ตัวอักษร`);
-    if (form.next !== form.confirm) return setError('ยืนยันรหัสผ่านใหม่ไม่ตรงกัน');
+    if (!form.current || !form.next || !form.confirm) return setError(t('กรุณากรอกข้อมูลให้ครบถ้วน'));
+    if (form.next.length < MIN_LENGTH) return setError(t('รหัสผ่านใหม่ต้องมีอย่างน้อย {0} ตัวอักษร', [MIN_LENGTH]));
+    if (form.next !== form.confirm) return setError(t('ยืนยันรหัสผ่านใหม่ไม่ตรงกัน'));
 
     setSubmitting(true);
     setError(null);
     try {
       const res = await changePassword(form.current, form.next);
       setForm({ current: '', next: '', confirm: '' });
-      Swal.fire({ icon: 'success', title: res.message || 'เปลี่ยนรหัสผ่านสำเร็จ', confirmButtonColor: '#166534' });
+      Swal.fire({ icon: 'success', title: tApi(res.message) || t('เปลี่ยนรหัสผ่านสำเร็จ'), confirmButtonColor: '#166534' });
     } catch (err) {
-      setError(err.userMessage || 'เปลี่ยนรหัสผ่านไม่สำเร็จ');
+      setError(err.userMessage || t('เปลี่ยนรหัสผ่านไม่สำเร็จ'));
     } finally {
       setSubmitting(false);
     }
@@ -37,7 +38,7 @@ export default function ChangePasswordPage() {
     <div className="mx-auto max-w-md">
       <div className="card p-6">
         <h1 className="mb-4 flex items-center gap-2 text-lg font-semibold">
-          <KeyRound size={20} /> เปลี่ยนรหัสผ่าน
+          <KeyRound size={20} /> {t('เปลี่ยนรหัสผ่าน')}
         </h1>
 
         {error && (
@@ -47,12 +48,12 @@ export default function ChangePasswordPage() {
         )}
 
         <form onSubmit={handleSubmit} className="space-y-4" noValidate>
-          <Field id="current" label="รหัสผ่านปัจจุบัน" autoComplete="current-password" value={form.current} onChange={set('current')} />
-          <Field id="next" label={`รหัสผ่านใหม่ (อย่างน้อย ${MIN_LENGTH} ตัวอักษร)`} autoComplete="new-password" value={form.next} onChange={set('next')} />
-          <Field id="confirm" label="ยืนยันรหัสผ่านใหม่" autoComplete="new-password" value={form.confirm} onChange={set('confirm')} />
+          <Field id="current" label={t('รหัสผ่านปัจจุบัน')} autoComplete="current-password" value={form.current} onChange={set('current')} />
+          <Field id="next" label={t('รหัสผ่านใหม่ (อย่างน้อย {0} ตัวอักษร)', [MIN_LENGTH])} autoComplete="new-password" value={form.next} onChange={set('next')} />
+          <Field id="confirm" label={t('ยืนยันรหัสผ่านใหม่')} autoComplete="new-password" value={form.confirm} onChange={set('confirm')} />
           <button type="submit" disabled={submitting} className="btn-primary w-full py-2.5">
             {submitting && <Loader2 className="animate-spin" size={18} />}
-            {submitting ? 'กำลังบันทึก...' : 'บันทึกรหัสผ่านใหม่'}
+            {submitting ? t('กำลังบันทึก...') : t('บันทึกรหัสผ่านใหม่')}
           </button>
         </form>
       </div>

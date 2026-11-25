@@ -3,6 +3,8 @@ import { Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { Eye, EyeOff, Loader2, LogIn, UtensilsCrossed } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import FullPageLoader from '../components/FullPageLoader';
+import { t } from '../i18n';
+import LanguageSwitcher from '../components/LanguageSwitcher';
 
 export default function LoginPage() {
   const { user, status, sessionMessage, login } = useAuth();
@@ -17,13 +19,13 @@ export default function LoginPage() {
 
   const from = location.state?.from?.pathname || '/';
 
-  if (status === 'loading') return <FullPageLoader text="กำลังตรวจสอบการเข้าสู่ระบบ..." />;
+  if (status === 'loading') return <FullPageLoader text={t('กำลังตรวจสอบการเข้าสู่ระบบ...')} />;
   if (user) return <Navigate to={from} replace />;
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!username.trim() || !password) {
-      setError('กรุณากรอกชื่อผู้ใช้และรหัสผ่าน');
+      setError(t('กรุณากรอกชื่อผู้ใช้และรหัสผ่าน'));
       return;
     }
     setSubmitting(true);
@@ -32,7 +34,7 @@ export default function LoginPage() {
       await login(username.trim(), password);
       navigate(from, { replace: true });
     } catch (err) {
-      setError(err.userMessage || 'เข้าสู่ระบบไม่สำเร็จ');
+      setError(err.userMessage || t('เข้าสู่ระบบไม่สำเร็จ'));
       setSubmitting(false);
     }
   };
@@ -41,13 +43,14 @@ export default function LoginPage() {
 
   return (
     <div className="flex min-h-full items-center justify-center bg-gradient-to-br from-primary-50 to-surface p-4">
-      <div className="card w-full max-w-sm p-6 sm:p-8">
+      <div className="card relative w-full max-w-sm p-6 sm:p-8">
+        <LanguageSwitcher className="absolute right-4 top-4" />
         <div className="mb-6 flex flex-col items-center text-center">
           <div className="mb-3 flex h-14 w-14 items-center justify-center rounded-2xl bg-primary-800 text-white">
             <UtensilsCrossed size={28} />
           </div>
           <h1 className="text-xl font-semibold">Food POS</h1>
-          <p className="text-sm text-slate-500">เข้าสู่ระบบเพื่อใช้งาน</p>
+          <p className="text-sm text-slate-500">{t('เข้าสู่ระบบเพื่อใช้งาน')}</p>
         </div>
 
         {message && (
@@ -59,7 +62,7 @@ export default function LoginPage() {
         <form onSubmit={handleSubmit} className="space-y-4" noValidate>
           <div>
             <label htmlFor="username" className="mb-1 block text-sm font-medium text-slate-700">
-              ชื่อผู้ใช้
+              {t('ชื่อผู้ใช้')}
             </label>
             <input
               id="username"
@@ -73,7 +76,7 @@ export default function LoginPage() {
           </div>
           <div>
             <label htmlFor="password" className="mb-1 block text-sm font-medium text-slate-700">
-              รหัสผ่าน
+              {t('รหัสผ่าน')}
             </label>
             <div className="relative">
               <input
@@ -88,7 +91,7 @@ export default function LoginPage() {
                 type="button"
                 onClick={() => setShowPassword((v) => !v)}
                 className="absolute inset-y-0 right-0 flex w-10 items-center justify-center text-slate-400 hover:text-slate-600"
-                aria-label={showPassword ? 'ซ่อนรหัสผ่าน' : 'แสดงรหัสผ่าน'}
+                aria-label={showPassword ? t('ซ่อนรหัสผ่าน') : t('แสดงรหัสผ่าน')}
               >
                 {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
               </button>
@@ -96,7 +99,7 @@ export default function LoginPage() {
           </div>
           <button type="submit" disabled={submitting} className="btn-primary w-full py-2.5">
             {submitting ? <Loader2 className="animate-spin" size={18} /> : <LogIn size={18} />}
-            {submitting ? 'กำลังเข้าสู่ระบบ...' : 'เข้าสู่ระบบ'}
+            {submitting ? t('กำลังเข้าสู่ระบบ...') : t('เข้าสู่ระบบ')}
           </button>
         </form>
       </div>

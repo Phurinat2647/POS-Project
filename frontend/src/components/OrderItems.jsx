@@ -1,7 +1,8 @@
 import { formatCurrency } from '../utils/format';
+import { localName } from '../i18n';
 
 /** ข้อความตัวเลือก เช่น "พิเศษ, ไข่ดาว" */
-export const optionText = (options = []) => options.map((o) => o.name).join(', ');
+export const optionText = (options = []) => options.map((o) => localName(o)).join(', ');
 
 /**
  * แสดงรายการอาหารในออเดอร์ (อ่านจาก snapshot ของ order_items / order_item_options)
@@ -15,7 +16,7 @@ export default function OrderItems({ items, showPrice = false, size = 'md' }) {
         <li key={item.id} className={`flex gap-3 ${big ? 'py-2' : 'py-1.5'}`}>
           <span className={`shrink-0 font-semibold text-primary-800 ${big ? 'text-lg' : 'text-sm'}`}>{item.quantity}×</span>
           <div className="min-w-0 flex-1">
-            <div className={`font-medium ${big ? 'text-base' : 'text-sm'}`}>{item.menuName}</div>
+            <div className={`font-medium ${big ? 'text-base' : 'text-sm'}`}>{localName(item, 'menuName')}</div>
             {item.options.length > 0 && (
               <div className={`text-slate-500 ${big ? 'text-sm' : 'text-xs'}`}>{optionText(item.options)}</div>
             )}

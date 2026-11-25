@@ -59,7 +59,7 @@ async function getSummary() {
   }));
 
   const [topMenus] = await pool.query(
-    `SELECT oi.menu_name AS name, SUM(oi.quantity) AS quantity, SUM(oi.line_total) AS sales
+    `SELECT oi.menu_name AS name, MAX(oi.menu_name_en) AS name_en, SUM(oi.quantity) AS quantity, SUM(oi.line_total) AS sales
        FROM order_items oi JOIN orders o ON o.id = oi.order_id
       WHERE o.payment_status = 'paid' AND o.status <> 'cancelled'
         AND o.paid_at >= CURDATE() - INTERVAL ? DAY
@@ -86,6 +86,9 @@ async function getSummary() {
       ORDER BY (quantity / NULLIF(min_quantity, 0)), name
       LIMIT 10`
   );
+  const [[{ n: lowStockCount }]] = await pool.query(
+    'SELECT COUNT(*) AS n FROM ingredients WHERE is_active = 1 AND quantity <= min_quantity'
+  );
 
   const [recentOrders] = await pool.query(
     `SELECT id, order_no, order_type, table_no, status, payment_status, total, created_at
@@ -109,7 +112,7 @@ async function getSummary() {
       unpaid: Number(orders.unpaid),
     },
     salesTrend,
-    topMenus: topMenus.map((r) => ({ name: r.name, quantity: Number(r.quantity), sales: baht(r.sales) })),
+    topMenus: topMenus.map((r) => ({ name: r.name, nameEn: r.name_en ?? null, quantity: Number(r.quantity), sales: baht(r.sales) })),
     menus: {
       total: Number(menuStats.total),
       available: Number(menuStats.available),
@@ -123,6 +126,7 @@ async function getSummary() {
       quantity: r.quantity,
       minQuantity: r.min_quantity,
     })),
+    lowStockCount: Number(lowStockCount), // ทั้งหมด (lowStock แสดงแค่ 10 รายการแรก)
     recentOrders: recentOrders.map((r) => ({
       id: r.id,
       orderNo: r.order_no,

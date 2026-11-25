@@ -9,6 +9,7 @@ const toMenu = (r) => ({
   categoryId: r.category_id,
   categoryName: r.category_name,
   name: r.name,
+  nameEn: r.name_en ?? null, // ชื่อภาษาอังกฤษ (ว่าง = ใช้ชื่อไทย)
   description: r.description,
   price: r.price,
   imageUrl: r.image_url,
@@ -40,8 +41,9 @@ async function list({ categoryId, status, search, includeInactive = false } = {}
     params.push(status);
   }
   if (search) {
-    where.push('m.name LIKE ?');
-    params.push(`%${search.replace(/[\\%_]/g, '\\$&')}%`);
+    where.push('(m.name LIKE ? OR m.name_en LIKE ?)');
+    const like = `%${search.replace(/[\\%_]/g, '\\$&')}%`;
+    params.push(like, like);
   }
   const [rows] = await pool.query(
     `${BASE_SELECT} ${where.length ? `WHERE ${where.join(' AND ')}` : ''}
@@ -83,12 +85,12 @@ async function assertCanSell(menuId) {
   }
 }
 
-async function create({ categoryId, name, description, price, status, imageUrl }) {
+async function create({ categoryId, name, nameEn, description, price, status, imageUrl }) {
   await assertCategoryActive(categoryId);
   await assertNameAvailable(name);
   const [r] = await pool.query(
-    'INSERT INTO menus (category_id, name, description, price, status, image_url) VALUES (?, ?, ?, ?, ?, ?)',
-    [categoryId, name, description, price, status, imageUrl]
+    'INSERT INTO menus (category_id, name, name_en, description, price, status, image_url) VALUES (?, ?, ?, ?, ?, ?, ?)',
+    [categoryId, name, nameEn, description, price, status, imageUrl]
   );
   return getById(r.insertId);
 }
@@ -98,7 +100,7 @@ async function create({ categoryId, name, description, price, status, imageUrl }
  * image: { newUrl } = เปลี่ยนรูป, { remove: true } = ลบรูป, ไม่ส่ง = ใช้รูปเดิม
  * ลบไฟล์รูปเก่าหลังบันทึกสำเร็จเท่านั้น
  */
-async function update(id, { categoryId, name, description, price, status }, image = {}) {
+async function update(id, { categoryId, name, nameEn, description, price, status }, image = {}) {
   const current = await getById(id);
   if (!current.isActive) throw ApiError.badRequest('เมนูนี้ถูกลบแล้ว');
   if (categoryId !== current.categoryId) await assertCategoryActive(categoryId);
@@ -112,9 +114,9 @@ async function update(id, { categoryId, name, description, price, status }, imag
   const statusChanged = status !== current.status;
   if (statusChanged && status === 'available') await assertCanSell(id);
   await pool.query(
-    `UPDATE menus SET category_id = ?, name = ?, description = ?, price = ?, status = ?, image_url = ?
+    `UPDATE menus SET category_id = ?, name = ?, name_en = ?, description = ?, price = ?, status = ?, image_url = ?
                       ${statusChanged ? ', auto_sold_out = 0' : ''} WHERE id = ?`,
-    [categoryId, name, description, price, status, imageUrl, id]
+    [categoryId, name, nameEn, description, price, status, imageUrl, id]
   );
   if (current.imageUrl && current.imageUrl !== imageUrl) removeMenuImage(current.imageUrl);
   return getById(id);

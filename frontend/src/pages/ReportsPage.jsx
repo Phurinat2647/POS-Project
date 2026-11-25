@@ -7,9 +7,10 @@ import { getSalesReport } from '../services/report.service';
 import { downloadCsv } from '../utils/csv';
 import { formatCompactBaht, formatCurrency, formatDateTime, formatNumber, formatShortDate } from '../utils/format';
 import { ORDER_TYPE } from '../utils/labels';
+import { localName, t } from '../i18n';
 
 const BAR_COLOR = '#15803d'; // เดียวกับ Dashboard (primary-700)
-const METHOD_LABEL = { cash: 'เงินสด', promptpay: 'PromptPay' };
+const METHOD_LABEL = { cash: t('เงินสด'), promptpay: 'PromptPay' };
 
 const ymd = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 const addDays = (d, n) => new Date(d.getFullYear(), d.getMonth(), d.getDate() + n);
@@ -35,11 +36,11 @@ function presetRange(key) {
 }
 
 const PRESETS = [
-  ['today', 'วันนี้'],
-  ['yesterday', 'เมื่อวาน'],
-  ['7d', '7 วันล่าสุด'],
-  ['month', 'เดือนนี้'],
-  ['lastMonth', 'เดือนที่แล้ว'],
+  ['today', t('วันนี้')],
+  ['yesterday', t('เมื่อวาน')],
+  ['7d', t('7 วันล่าสุด')],
+  ['month', t('เดือนนี้')],
+  ['lastMonth', t('เดือนที่แล้ว')],
 ];
 
 /** รายงานยอดขาย (admin) — นับจากออเดอร์ที่ชำระแล้วตามวันที่ชำระ */
@@ -80,15 +81,15 @@ export default function ReportsPage() {
 
   const exportBills = () =>
     downloadCsv(`sales-bills_${fileSuffix}.csv`, [
-      { header: 'เลขออเดอร์', value: (o) => o.orderNo },
-      { header: 'วันเวลาชำระ', value: (o) => formatDateTime(o.paidAt) },
-      { header: 'ประเภท', value: (o) => ORDER_TYPE[o.orderType] },
-      { header: 'โต๊ะ', value: (o) => o.tableNo || '' },
-      { header: 'จำนวนรายการ', value: (o) => o.itemCount },
-      { header: 'ยอดรวม', value: (o) => o.subtotal.toFixed(2) },
-      { header: 'ส่วนลด', value: (o) => o.discount.toFixed(2) },
-      { header: 'ยอดสุทธิ', value: (o) => o.total.toFixed(2) },
-      { header: 'วิธีชำระ', value: (o) => METHOD_LABEL[o.method] },
+      { header: t('เลขออเดอร์'), value: (o) => o.orderNo },
+      { header: t('วันเวลาชำระ'), value: (o) => formatDateTime(o.paidAt) },
+      { header: t('ประเภท'), value: (o) => ORDER_TYPE[o.orderType] },
+      { header: t('โต๊ะ'), value: (o) => o.tableNo || '' },
+      { header: t('จำนวนรายการ'), value: (o) => o.itemCount },
+      { header: t('ยอดรวม'), value: (o) => o.subtotal.toFixed(2) },
+      { header: t('ส่วนลด'), value: (o) => o.discount.toFixed(2) },
+      { header: t('ยอดสุทธิ'), value: (o) => o.total.toFixed(2) },
+      { header: t('วิธีชำระ'), value: (o) => METHOD_LABEL[o.method] },
     ], data.orders);
 
   /** เปิดหน้ารายงานสำหรับพิมพ์ในแท็บใหม่ (บันทึกเป็น PDF ผ่านหน้าต่างพิมพ์ของ browser) */
@@ -99,28 +100,28 @@ export default function ReportsPage() {
 
   const exportMenus = () =>
     downloadCsv(`sales-menus_${fileSuffix}.csv`, [
-      { header: 'เมนู', value: (m) => m.name },
-      { header: 'หมวดหมู่', value: (m) => m.category || '' },
-      { header: 'จำนวน', value: (m) => m.quantity },
-      { header: 'ยอดขาย (ก่อนส่วนลด)', value: (m) => m.sales.toFixed(2) },
+      { header: t('เมนู'), value: (m) => localName(m) },
+      { header: t('หมวดหมู่'), value: (m) => m.category || '' },
+      { header: t('จำนวน'), value: (m) => m.quantity },
+      { header: t('ยอดขาย (ก่อนส่วนลด)'), value: (m) => m.sales.toFixed(2) },
     ], data.topMenus);
 
   return (
     <div className="mx-auto max-w-7xl">
       <PageHeader
-        title="รายงานยอดขาย"
-        description="นับเฉพาะออเดอร์ที่ชำระเงินแล้ว ตามวันที่ชำระ"
+        title={t('รายงานยอดขาย')}
+        description={t('นับเฉพาะออเดอร์ที่ชำระเงินแล้ว ตามวันที่ชำระ')}
         actions={
           data && data.summary.bills > 0 && (
             <>
               <button className="btn-primary" onClick={openPdf}>
-                <FileText size={16} /> รายงาน PDF
+                <FileText size={16} /> {t('รายงาน PDF')}
               </button>
               <button className="btn-outline" onClick={exportBills}>
-                <Download size={16} /> รายการบิล (CSV)
+                <Download size={16} /> {t('รายการบิล (CSV)')}
               </button>
               <button className="btn-outline" onClick={exportMenus}>
-                <Download size={16} /> ยอดขายรายเมนู (CSV)
+                <Download size={16} /> {t('ยอดขายรายเมนู (CSV)')}
               </button>
             </>
           )
@@ -128,7 +129,7 @@ export default function ReportsPage() {
       />
 
       <div className="card mb-4 flex flex-col gap-3 p-4 lg:flex-row lg:items-center lg:justify-between">
-        <div className="flex flex-wrap gap-1.5" role="group" aria-label="ช่วงเวลา">
+        <div className="flex flex-wrap gap-1.5" role="group" aria-label={t('ช่วงเวลา')}>
           {PRESETS.map(([k, label]) => (
             <button
               key={k}
@@ -141,9 +142,9 @@ export default function ReportsPage() {
           ))}
         </div>
         <div className="flex items-center gap-2">
-          <input type="date" className="input" value={range.from} max={range.to} onChange={setDate('from')} aria-label="ตั้งแต่วันที่" />
+          <input type="date" className="input" value={range.from} max={range.to} onChange={setDate('from')} aria-label={t('ตั้งแต่วันที่')} />
           <span className="text-slate-400">–</span>
-          <input type="date" className="input" value={range.to} min={range.from} onChange={setDate('to')} aria-label="ถึงวันที่" />
+          <input type="date" className="input" value={range.to} min={range.from} onChange={setDate('to')} aria-label={t('ถึงวันที่')} />
         </div>
       </div>
 
@@ -164,47 +165,47 @@ function Report({ data }) {
   return (
     <div className="space-y-4">
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <Stat label="ยอดขายสุทธิ" value={formatCurrency(s.netSales)} strong />
-        <Stat label="จำนวนบิล" value={formatNumber(s.bills)} sub={`${formatNumber(s.itemsSold)} จาน/แก้ว`} />
-        <Stat label="เฉลี่ยต่อบิล" value={formatCurrency(s.averagePerBill)} />
-        <Stat label="ส่วนลดรวม" value={formatCurrency(s.discount)} sub={`ยอดก่อนส่วนลด ${formatCurrency(s.grossSales)}`} />
+        <Stat label={t('ยอดขายสุทธิ')} value={formatCurrency(s.netSales)} strong />
+        <Stat label={t('จำนวนบิล')} value={formatNumber(s.bills)} sub={t('{0} จาน/แก้ว', [formatNumber(s.itemsSold)])} />
+        <Stat label={t('เฉลี่ยต่อบิล')} value={formatCurrency(s.averagePerBill)} />
+        <Stat label={t('ส่วนลดรวม')} value={formatCurrency(s.discount)} sub={t('ยอดก่อนส่วนลด {0}', [formatCurrency(s.grossSales)])} />
       </div>
       {(s.cancelledOrders > 0 || s.unpaidOrders > 0) && (
         <div className="flex flex-wrap gap-x-6 gap-y-1 rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-600">
-          <span>ยกเลิก <b>{formatNumber(s.cancelledOrders)}</b> ออเดอร์ ({formatCurrency(s.cancelledAmount)})</span>
-          <span>ค้างชำระ <b>{formatNumber(s.unpaidOrders)}</b> ออเดอร์ ({formatCurrency(s.unpaidAmount)}) — ไม่นับในยอดขาย</span>
+          <span>{t('ยกเลิก#status')} <b>{formatNumber(s.cancelledOrders)}</b> {t('ออเดอร์ (')}{formatCurrency(s.cancelledAmount)})</span>
+          <span>{t('ค้างชำระ')} <b>{formatNumber(s.unpaidOrders)}</b> {t('ออเดอร์ (')}{formatCurrency(s.unpaidAmount)}{t(') — ไม่นับในยอดขาย')}</span>
         </div>
       )}
 
       {s.bills === 0 ? (
         <div className="card">
-          <EmptyState text="ไม่มียอดขายในช่วงวันที่เลือก" />
+          <EmptyState text={t('ไม่มียอดขายในช่วงวันที่เลือก')} />
         </div>
       ) : (
         <>
           <div className="grid gap-4 lg:grid-cols-3">
             <SalesChart
               className="lg:col-span-2"
-              title={singleDay ? 'ยอดขายรายชั่วโมง' : 'ยอดขายรายวัน'}
+              title={singleDay ? t('ยอดขายรายชั่วโมง') : t('ยอดขายรายวัน')}
               rows={
                 singleDay
                   ? data.byHour.filter((h) => h.bills > 0 || (h.hour >= 9 && h.hour <= 21)).map((h) => ({ ...h, label: `${String(h.hour).padStart(2, '0')}:00` }))
                   : data.daily.map((d) => ({ ...d, label: formatShortDate(d.date) }))
               }
-              firstColumn={singleDay ? 'ชั่วโมง' : 'วันที่'}
+              firstColumn={singleDay ? t('ชั่วโมง') : t('วันที่')}
             />
             <ShareCard
-              title="แยกตามวิธีชำระ"
-              rows={data.byMethod.map((m) => ({ name: METHOD_LABEL[m.method], sales: m.sales, sub: `${formatNumber(m.bills)} บิล` }))}
+              title={t('แยกตามวิธีชำระ')}
+              rows={data.byMethod.map((m) => ({ name: METHOD_LABEL[m.method], sales: m.sales, sub: t('{0} บิล', [formatNumber(m.bills)]) }))}
               total={s.netSales}
             />
           </div>
           <div className="grid gap-4 lg:grid-cols-3">
             <MenuTable className="lg:col-span-2" items={data.topMenus} />
             <ShareCard
-              title="แยกตามหมวดหมู่"
-              note="ยอดก่อนหักส่วนลดท้ายบิล"
-              rows={data.byCategory.map((c) => ({ name: c.name, sales: c.sales, sub: `${formatNumber(c.quantity)} รายการ` }))}
+              title={t('แยกตามหมวดหมู่')}
+              note={t('ยอดก่อนหักส่วนลดท้ายบิล')}
+              rows={data.byCategory.map((c) => ({ name: c.name, sales: c.sales, sub: t('{0} รายการ', [formatNumber(c.quantity)]) }))}
               total={data.byCategory.reduce((sum, c) => sum + c.sales, 0)}
             />
           </div>
@@ -230,10 +231,10 @@ function SalesChart({ title, rows, firstColumn, className = '' }) {
     <div className={`card p-4 ${className}`}>
       <div className="mb-3 flex items-start justify-between gap-2">
         <h2 className="font-semibold">{title}</h2>
-        <div className="flex rounded-lg border border-slate-200 p-0.5" role="group" aria-label="รูปแบบการแสดงผล">
+        <div className="flex rounded-lg border border-slate-200 p-0.5" role="group" aria-label={t('รูปแบบการแสดงผล')}>
           {[
-            ['chart', BarChart3, 'กราฟ'],
-            ['table', Table2, 'ตาราง'],
+            ['chart', BarChart3, t('กราฟ')],
+            ['table', Table2, t('ตาราง')],
           ].map(([v, Icon, label]) => (
             <button
               key={v}
@@ -262,7 +263,7 @@ function SalesChart({ title, rows, firstColumn, className = '' }) {
                 allowDecimals={false}
               />
               <Tooltip cursor={{ fill: '#f1f5f9' }} content={<ChartTooltip />} />
-              <Bar dataKey="sales" name="ยอดขาย" fill={BAR_COLOR} radius={[4, 4, 0, 0]} maxBarSize={24} />
+              <Bar dataKey="sales" name={t('ยอดขาย')} fill={BAR_COLOR} radius={[4, 4, 0, 0]} maxBarSize={24} />
             </BarChart>
           </ResponsiveContainer>
         </div>
@@ -272,8 +273,8 @@ function SalesChart({ title, rows, firstColumn, className = '' }) {
             <thead className="sticky top-0 bg-white text-left text-xs text-slate-500">
               <tr className="border-b border-slate-200">
                 <th className="py-2 font-medium">{firstColumn}</th>
-                <th className="py-2 text-right font-medium">บิล</th>
-                <th className="py-2 text-right font-medium">ยอดขาย</th>
+                <th className="py-2 text-right font-medium">{t('บิล')}</th>
+                <th className="py-2 text-right font-medium">{t('ยอดขาย')}</th>
               </tr>
             </thead>
             <tbody>
@@ -299,9 +300,9 @@ function ChartTooltip({ active, payload }) {
     <div className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs shadow-md">
       <div className="font-medium text-slate-800">{d.label}</div>
       <div className="mt-1 text-slate-600">
-        ยอดขาย <span className="font-semibold text-slate-800 tabular-nums">{formatCurrency(d.sales)}</span>
+        {t('ยอดขาย')} <span className="font-semibold text-slate-800 tabular-nums">{formatCurrency(d.sales)}</span>
       </div>
-      <div className="text-slate-600">{formatNumber(d.bills)} บิล</div>
+      <div className="text-slate-600">{formatNumber(d.bills)} {t('บิล')}</div>
     </div>
   );
 }
@@ -340,24 +341,24 @@ function MenuTable({ items, className = '' }) {
   const list = showAll ? items : items.slice(0, 10);
   return (
     <div className={`card p-4 ${className}`}>
-      <h2 className="font-semibold">ยอดขายรายเมนู</h2>
-      <p className="mb-3 text-xs text-slate-500">เรียงตามจำนวนที่ขาย · ยอดก่อนหักส่วนลดท้ายบิล</p>
+      <h2 className="font-semibold">{t('ยอดขายรายเมนู')}</h2>
+      <p className="mb-3 text-xs text-slate-500">{t('เรียงตามจำนวนที่ขาย · ยอดก่อนหักส่วนลดท้ายบิล')}</p>
       <div className="overflow-x-auto">
         <table className="w-full text-sm">
           <thead className="text-left text-xs text-slate-500">
             <tr className="border-b border-slate-200">
               <th className="py-2 font-medium">#</th>
-              <th className="py-2 font-medium">เมนู</th>
-              <th className="hidden py-2 font-medium sm:table-cell">หมวดหมู่</th>
-              <th className="py-2 text-right font-medium">จำนวน</th>
-              <th className="py-2 text-right font-medium">ยอดขาย</th>
+              <th className="py-2 font-medium">{t('เมนู')}</th>
+              <th className="hidden py-2 font-medium sm:table-cell">{t('หมวดหมู่')}</th>
+              <th className="py-2 text-right font-medium">{t('จำนวน')}</th>
+              <th className="py-2 text-right font-medium">{t('ยอดขาย')}</th>
             </tr>
           </thead>
           <tbody>
             {list.map((m, i) => (
               <tr key={`${m.name}-${m.category}`} className="border-b border-slate-100 last:border-0">
                 <td className="py-2 text-slate-400">{i + 1}</td>
-                <td className="py-2">{m.name}</td>
+                <td className="py-2">{localName(m)}</td>
                 <td className="hidden py-2 text-slate-500 sm:table-cell">{m.category || '-'}</td>
                 <td className="py-2 text-right tabular-nums">{formatNumber(m.quantity)}</td>
                 <td className="py-2 text-right tabular-nums">{formatCurrency(m.sales)}</td>
@@ -368,7 +369,7 @@ function MenuTable({ items, className = '' }) {
       </div>
       {items.length > 10 && (
         <button className="mt-2 text-sm font-medium text-primary-800" onClick={() => setShowAll(!showAll)}>
-          {showAll ? 'แสดงน้อยลง' : `แสดงทั้งหมด ${items.length} เมนู`}
+          {showAll ? t('แสดงน้อยลง') : t('แสดงทั้งหมด {0} เมนู', [items.length])}
         </button>
       )}
     </div>

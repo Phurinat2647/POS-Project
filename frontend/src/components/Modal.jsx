@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { X } from 'lucide-react';
+import { t } from '../i18n';
 
 const SIZES = { sm: 'max-w-md', md: 'max-w-lg', lg: 'max-w-2xl' };
 
@@ -34,7 +35,7 @@ export default function Modal({ open, title, onClose, children, footer, size = '
       >
         <div className="flex items-center justify-between border-b border-slate-200 px-5 py-4">
           <h2 className="text-base font-semibold">{title}</h2>
-          <button className="btn-icon" onClick={onClose} disabled={busy} aria-label="ปิด">
+          <button className="btn-icon" onClick={onClose} disabled={busy} aria-label={t('ปิด')}>
             <X size={18} />
           </button>
         </div>

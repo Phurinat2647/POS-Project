@@ -1,4 +1,5 @@
 import Swal from 'sweetalert2';
+import { t, tApi } from '../i18n';
 
 const PRIMARY = '#166534';
 const DANGER = '#dc2626';
@@ -10,8 +11,8 @@ export async function confirmDelete(title, text) {
     text,
     icon: 'warning',
     showCancelButton: true,
-    confirmButtonText: 'ลบ',
-    cancelButtonText: 'ยกเลิก',
+    confirmButtonText: t('ลบ'),
+    cancelButtonText: t('ยกเลิก'),
     confirmButtonColor: DANGER,
     reverseButtons: true,
     focusCancel: true,
@@ -24,13 +25,13 @@ export function toastSuccess(title) {
     toast: true,
     position: 'top-end',
     icon: 'success',
-    title,
+    title: tApi(title), // ข้อความสำเร็จจาก API เป็นภาษาไทย
     showConfirmButton: false,
     timer: 2000,
     timerProgressBar: true,
   });
 }
 
-export function showError(text, title = 'ไม่สำเร็จ') {
-  return Swal.fire({ icon: 'error', title, text, confirmButtonColor: PRIMARY, confirmButtonText: 'ตกลง' });
+export function showError(text, title = t('ไม่สำเร็จ')) {
+  return Swal.fire({ icon: 'error', title, text: tApi(text), confirmButtonColor: PRIMARY, confirmButtonText: t('ตกลง') });
 }

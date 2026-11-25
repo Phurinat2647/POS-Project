@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { t, tApi } from '../i18n';
 
 export const TOKEN_KEY = 'food_pos_token';
 /** event ที่ยิงเมื่อ API ตอบ 401 (token หมดอายุ/ไม่ถูกต้อง) — AuthContext ฟังเพื่อออกจากระบบ */
@@ -44,11 +45,11 @@ api.interceptors.response.use(
     const message =
       error.response?.data?.message ||
       (error.code === 'ECONNABORTED'
-        ? 'หมดเวลาการเชื่อมต่อกับเซิร์ฟเวอร์'
+        ? t('หมดเวลาการเชื่อมต่อกับเซิร์ฟเวอร์')
         : error.response
-          ? `เกิดข้อผิดพลาด (${error.response.status})`
-          : 'ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์ได้');
-    error.userMessage = message;
+          ? t('เกิดข้อผิดพลาด ({0})', [error.response.status])
+          : t('ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์ได้'));
+    error.userMessage = tApi(message); // ข้อความจาก backend เป็นภาษาไทย — แปลเมื่อเลือก EN
 
     // 401 จากหน้า login คือรหัสผ่านผิด ไม่ใช่ session หมดอายุ
     const isLoginRequest = error.config?.url?.includes('/auth/login');

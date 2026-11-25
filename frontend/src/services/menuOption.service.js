@@ -12,3 +12,9 @@ export const createMenuOption = async (payload) => (await api.post('/menu-option
 export const updateMenuOption = async (id, payload) => (await api.put(`/menu-options/${id}`, payload)).data;
 
 export const deleteMenuOption = async (id) => (await api.delete(`/menu-options/${id}`)).data;
+
+/** วัตถุดิบของตัวเลือก: { extraPercent, items: [{ ingredientId, name, unit, quantity, stock, isActive }] } */
+export const getOptionRecipe = async (id) => (await api.get(`/menu-options/${id}/recipe`)).data.data;
+
+/** { extraPercent, items: [{ ingredientId, quantity } | { name, unit, quantity }] } — แทนที่ทั้งหมด */
+export const saveOptionRecipe = async (id, payload) => (await api.put(`/menu-options/${id}/recipe`, payload)).data;

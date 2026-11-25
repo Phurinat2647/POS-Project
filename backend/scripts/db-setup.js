@@ -9,6 +9,7 @@ const fs = require('fs');
 const path = require('path');
 const mysql = require('mysql2/promise');
 const { applyRecipes, printReport } = require('./db-recipes');
+const { applyEnglishNames } = require('../database/names-en');
 const { sync: syncMenus } = require('../src/services/menuAvailability.service');
 require('dotenv').config({ path: path.resolve(__dirname, '../.env') });
 
@@ -42,6 +43,8 @@ function loadSql(file) {
       console.log('> Inserting seed data ...');
       await conn.query(loadSql('seed.sql'));
       console.log('  seed.sql ✔');
+      await applyEnglishNames(conn);
+      console.log('  ชื่อภาษาอังกฤษ (database/names-en.js) ✔');
       // สูตรอาหารมาตรฐาน (database/recipes.js) + วัตถุดิบที่เกี่ยวข้องพร้อมยอดตัวอย่าง
       await conn.beginTransaction();
       const report = await applyRecipes(conn, { replace: true, withStock: true });

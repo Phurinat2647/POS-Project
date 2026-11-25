@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Pencil, Plus, Star, Trash2 } from 'lucide-react';
+import { ChefHat, Pencil, Plus, Star, Trash2 } from 'lucide-react';
 import PageHeader from '../components/PageHeader';
 import Modal from '../components/Modal';
+import RecipeModal from '../components/RecipeModal';
+import OtherName from '../components/OtherName';
 import { EmptyState, ErrorState, LoadingState } from '../components/States';
 import { getCategories } from '../services/category.service';
 import { getMenus } from '../services/menu.service';
@@ -9,9 +11,10 @@ import { createMenuOption, deleteMenuOption, getMenuOptions, updateMenuOption } 
 import { confirmDelete, showError, toastSuccess } from '../utils/alert';
 import { formatCurrency } from '../utils/format';
 import { OPTION_SCOPE, OPTION_TYPE } from '../utils/labels';
+import { localName, t } from '../i18n';
 
 const scopeTarget = (o) =>
-  o.scope === 'menu' ? `เมนู: ${o.menuName}` : o.scope === 'category' ? `หมวด: ${o.categoryName}` : 'ทุกเมนู';
+  o.scope === 'menu' ? t('เมนู: {0}', [o.menuName]) : o.scope === 'category' ? t('หมวด: {0}', [o.categoryName]) : t('ทุกเมนู');
 
 export default function MenuOptionsPage() {
   const [options, setOptions] = useState([]);
@@ -21,6 +24,7 @@ export default function MenuOptionsPage() {
   const [error, setError] = useState(null);
   const [filters, setFilters] = useState({ scope: '', categoryId: '', optionType: '' });
   const [editing, setEditing] = useState(null);
+  const [recipeFor, setRecipeFor] = useState(null); // ตัวเลือกที่กำลังแก้วัตถุดิบ
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -53,7 +57,7 @@ export default function MenuOptionsPage() {
   }, [options]);
 
   const handleDelete = async (o) => {
-    if (!(await confirmDelete(`ลบตัวเลือก "${o.name}" (${scopeTarget(o)})?`, 'ออเดอร์เก่ายังเก็บชื่อและราคาตัวเลือกไว้ตามเดิม'))) return;
+    if (!(await confirmDelete(t('ลบตัวเลือก "{0}" ({1})?', [localName(o), scopeTarget(o)]), t('ออเดอร์เก่ายังเก็บชื่อและราคาตัวเลือกไว้ตามเดิม')))) return;
     try {
       const res = await deleteMenuOption(o.id);
       toastSuccess(res.message);
@@ -68,30 +72,30 @@ export default function MenuOptionsPage() {
   return (
     <div className="mx-auto max-w-5xl">
       <PageHeader
-        title="ตัวเลือกเมนู"
-        description="ขนาด (เลือกได้ 1 อย่าง) และท็อปปิ้ง (เลือกได้หลายอย่าง) — ผูกกับทุกเมนู ทั้งหมวด หรือเฉพาะเมนู"
+        title={t('ตัวเลือกเมนู')}
+        description={t('ขนาด (เลือกได้ 1 อย่าง) และท็อปปิ้ง (เลือกได้หลายอย่าง) — ผูกกับทุกเมนู ทั้งหมวด หรือเฉพาะเมนู')}
         actions={
           <button className="btn-primary" onClick={() => setEditing({})}>
-            <Plus size={16} /> เพิ่มตัวเลือก
+            <Plus size={16} /> {t('เพิ่มตัวเลือก')}
           </button>
         }
       />
 
       <div className="card mb-4 grid gap-2 p-3 sm:grid-cols-3">
-        <select className="input" value={filters.scope} onChange={setFilter('scope')} aria-label="ขอบเขต">
-          <option value="">ทุกขอบเขต</option>
+        <select className="input" value={filters.scope} onChange={setFilter('scope')} aria-label={t('ขอบเขต')}>
+          <option value="">{t('ทุกขอบเขต')}</option>
           {Object.entries(OPTION_SCOPE).map(([v, l]) => (
             <option key={v} value={v}>{l}</option>
           ))}
         </select>
-        <select className="input" value={filters.categoryId} onChange={setFilter('categoryId')} aria-label="หมวดหมู่">
-          <option value="">ทุกหมวดหมู่</option>
+        <select className="input" value={filters.categoryId} onChange={setFilter('categoryId')} aria-label={t('หมวดหมู่')}>
+          <option value="">{t('ทุกหมวดหมู่')}</option>
           {categories.map((c) => (
             <option key={c.id} value={c.id}>{c.name}</option>
           ))}
         </select>
-        <select className="input" value={filters.optionType} onChange={setFilter('optionType')} aria-label="ประเภท">
-          <option value="">ทุกประเภท</option>
+        <select className="input" value={filters.optionType} onChange={setFilter('optionType')} aria-label={t('ประเภท')}>
+          <option value="">{t('ทุกประเภท')}</option>
           {Object.entries(OPTION_TYPE).map(([v, { label }]) => (
             <option key={v} value={v}>{label}</option>
           ))}
@@ -103,7 +107,7 @@ export default function MenuOptionsPage() {
       ) : error ? (
         <div className="card"><ErrorState message={error} onRetry={load} /></div>
       ) : groups.length === 0 ? (
-        <div className="card"><EmptyState text="ไม่พบตัวเลือก" /></div>
+        <div className="card"><EmptyState text={t('ไม่พบตัวเลือก')} /></div>
       ) : (
         <div className={`space-y-3 ${loading ? 'opacity-60' : ''}`}>
           {groups.map(([title, list]) => (
@@ -114,20 +118,25 @@ export default function MenuOptionsPage() {
                   <li key={o.id} className={`flex items-center gap-3 px-4 py-2.5 text-sm ${o.isActive ? '' : 'text-slate-400'}`}>
                     <span className={`badge w-16 justify-center ${OPTION_TYPE[o.optionType].className}`}>{OPTION_TYPE[o.optionType].label}</span>
                     <span className="flex-1">
-                      {o.name}
+                      {localName(o)}
                       {o.isDefault && (
                         <span className="ml-2 inline-flex items-center gap-0.5 text-xs text-amber-600">
-                          <Star size={12} fill="currentColor" /> ค่าเริ่มต้น
+                          <Star size={12} fill="currentColor" /> {t('ค่าเริ่มต้น')}
                         </span>
                       )}
-                      {!o.isActive && <span className="ml-2 text-xs">(ปิดใช้งาน)</span>}
+                      {!o.isActive && <span className="ml-2 text-xs">{t('(ปิดใช้งาน)')}</span>}
+                      <OtherName item={o} className="block text-xs text-slate-500" />
+                      <StockUsage option={o} />
                     </span>
                     <span className="tabular-nums text-slate-600">+{formatCurrency(o.extraPrice)}</span>
                     <div className="flex gap-1">
-                      <button className="btn-icon" onClick={() => setEditing(o)} aria-label={`แก้ไข ${o.name}`}>
+                      <button className="btn-icon" onClick={() => setRecipeFor(o)} title={t('วัตถุดิบที่ตัดสต็อก')} aria-label={t('วัตถุดิบของ {0}', [o.name])}>
+                        <ChefHat size={16} />
+                      </button>
+                      <button className="btn-icon" onClick={() => setEditing(o)} aria-label={t('แก้ไข {0}', [localName(o)])}>
                         <Pencil size={16} />
                       </button>
-                      <button className="btn-icon hover:text-danger" onClick={() => handleDelete(o)} aria-label={`ลบ ${o.name}`}>
+                      <button className="btn-icon hover:text-danger" onClick={() => handleDelete(o)} aria-label={t('ลบ {0}', [localName(o)])}>
                         <Trash2 size={16} />
                       </button>
                     </div>
@@ -138,6 +147,8 @@ export default function MenuOptionsPage() {
           ))}
         </div>
       )}
+
+      {recipeFor && <RecipeModal option={recipeFor} onClose={() => setRecipeFor(null)} onSaved={() => load()} />}
 
       {editing && (
         <OptionForm
@@ -155,6 +166,15 @@ export default function MenuOptionsPage() {
   );
 }
 
+/** สรุปการตัดสต็อกของตัวเลือก เช่น "สูตรเมนู +50%" / "วัตถุดิบ 2 รายการ" */
+function StockUsage({ option: o }) {
+  const parts = [];
+  if (o.recipeExtraPercent > 0) parts.push(t('สูตรเมนู +{0}%', [o.recipeExtraPercent]));
+  if (o.recipeItemCount > 0) parts.push(t('วัตถุดิบ {0} รายการ', [o.recipeItemCount]));
+  if (!parts.length) return null;
+  return <span className="block text-xs text-slate-500">{t('ตัดสต็อก:')} {parts.join(' + ')}</span>;
+}
+
 function OptionForm({ initial, categories, menus, onClose, onSaved }) {
   const isEdit = !!initial.id;
   const [form, setForm] = useState({
@@ -163,6 +183,7 @@ function OptionForm({ initial, categories, menus, onClose, onSaved }) {
     menuId: initial.menuId ?? menus[0]?.id ?? '',
     optionType: initial.optionType ?? 'topping',
     name: initial.name ?? '',
+    nameEn: initial.nameEn ?? '',
     extraPrice: initial.extraPrice ?? 0,
     isDefault: initial.isDefault ?? false,
     sortOrder: initial.sortOrder ?? 0,
@@ -174,9 +195,9 @@ function OptionForm({ initial, categories, menus, onClose, onSaved }) {
 
   const submit = async (e) => {
     e.preventDefault();
-    if (!form.name.trim()) return setError('กรุณากรอกชื่อตัวเลือก');
+    if (!form.name.trim()) return setError(t('กรุณากรอกชื่อตัวเลือก'));
     const price = Number(form.extraPrice);
-    if (!Number.isFinite(price) || price < 0) return setError('ราคาเพิ่มต้องเป็นตัวเลขที่ไม่ติดลบ');
+    if (!Number.isFinite(price) || price < 0) return setError(t('ราคาเพิ่มต้องเป็นตัวเลขที่ไม่ติดลบ'));
 
     setSaving(true);
     setError(null);
@@ -184,6 +205,7 @@ function OptionForm({ initial, categories, menus, onClose, onSaved }) {
       const payload = {
         ...form,
         name: form.name.trim(),
+        nameEn: form.nameEn.trim(),
         extraPrice: price,
         sortOrder: Number(form.sortOrder) || 0,
         isDefault: form.optionType === 'size' && form.isDefault,
@@ -200,14 +222,14 @@ function OptionForm({ initial, categories, menus, onClose, onSaved }) {
   return (
     <Modal
       open
-      title={isEdit ? 'แก้ไขตัวเลือก' : 'เพิ่มตัวเลือก'}
+      title={isEdit ? t('แก้ไขตัวเลือก') : t('เพิ่มตัวเลือก')}
       onClose={onClose}
       busy={saving}
       footer={
         <>
-          <button className="btn-outline" onClick={onClose} disabled={saving}>ยกเลิก</button>
+          <button className="btn-outline" onClick={onClose} disabled={saving}>{t('ยกเลิก')}</button>
           <button className="btn-primary" type="submit" form="option-form" disabled={saving}>
-            {saving ? 'กำลังบันทึก...' : 'บันทึก'}
+            {saving ? t('กำลังบันทึก...') : t('บันทึก')}
           </button>
         </>
       }
@@ -217,7 +239,7 @@ function OptionForm({ initial, categories, menus, onClose, onSaved }) {
 
         <div className="grid gap-4 sm:grid-cols-2">
           <div>
-            <label className="label" htmlFor="opt-scope">ใช้กับ</label>
+            <label className="label" htmlFor="opt-scope">{t('ใช้กับ')}</label>
             <select id="opt-scope" className="input" value={form.scope} onChange={set('scope')}>
               {Object.entries(OPTION_SCOPE).map(([v, l]) => (
                 <option key={v} value={v}>{l}</option>
@@ -226,7 +248,7 @@ function OptionForm({ initial, categories, menus, onClose, onSaved }) {
           </div>
           {form.scope === 'category' && (
             <div>
-              <label className="label" htmlFor="opt-cat">หมวดหมู่</label>
+              <label className="label" htmlFor="opt-cat">{t('หมวดหมู่')}</label>
               <select id="opt-cat" className="input" value={form.categoryId} onChange={set('categoryId')}>
                 {categories.map((c) => (
                   <option key={c.id} value={c.id}>{c.name}</option>
@@ -236,10 +258,10 @@ function OptionForm({ initial, categories, menus, onClose, onSaved }) {
           )}
           {form.scope === 'menu' && (
             <div>
-              <label className="label" htmlFor="opt-menu">เมนู</label>
+              <label className="label" htmlFor="opt-menu">{t('เมนู')}</label>
               <select id="opt-menu" className="input" value={form.menuId} onChange={set('menuId')}>
                 {menus.map((m) => (
-                  <option key={m.id} value={m.id}>{m.name}</option>
+                  <option key={m.id} value={m.id}>{localName(m)}</option>
                 ))}
               </select>
             </div>
@@ -247,7 +269,7 @@ function OptionForm({ initial, categories, menus, onClose, onSaved }) {
         </div>
 
         <div>
-          <span className="label">ประเภท</span>
+          <span className="label">{t('ประเภท')}</span>
           <div className="flex gap-4 text-sm">
             {Object.entries(OPTION_TYPE).map(([v, { label, hint }]) => (
               <label key={v} className="flex items-center gap-2">
@@ -260,29 +282,35 @@ function OptionForm({ initial, categories, menus, onClose, onSaved }) {
 
         <div className="grid gap-4 sm:grid-cols-[1fr_140px_100px]">
           <div>
-            <label className="label" htmlFor="opt-name">ชื่อตัวเลือก *</label>
-            <input id="opt-name" className="input" value={form.name} onChange={set('name')} maxLength={100} placeholder="เช่น ไข่ดาว, พิเศษ" autoFocus />
+            <label className="label" htmlFor="opt-name">{t('ชื่อตัวเลือก *')}</label>
+            <input id="opt-name" className="input" value={form.name} onChange={set('name')} maxLength={100} placeholder={t('เช่น ไข่ดาว, พิเศษ')} autoFocus />
           </div>
           <div>
-            <label className="label" htmlFor="opt-price">ราคาเพิ่ม (บาท)</label>
+            <label className="label" htmlFor="opt-price">{t('ราคาเพิ่ม (บาท)')}</label>
             <input id="opt-price" type="number" min={0} step="0.01" className="input" value={form.extraPrice} onChange={set('extraPrice')} />
           </div>
           <div>
-            <label className="label" htmlFor="opt-sort">ลำดับ</label>
+            <label className="label" htmlFor="opt-sort">{t('ลำดับ')}</label>
             <input id="opt-sort" type="number" min={0} className="input" value={form.sortOrder} onChange={set('sortOrder')} />
           </div>
+        </div>
+
+        <div>
+          <label className="label" htmlFor="opt-name-en">{t('ชื่อภาษาอังกฤษ (ถ้ามี)')}</label>
+          <input id="opt-name-en" className="input" lang="en" value={form.nameEn} onChange={set('nameEn')} maxLength={100} placeholder={t('เช่น Fried Egg, Large')} />
+          <p className="mt-1 text-xs text-slate-500">{t('แสดงเมื่อเลือกภาษา EN — เว้นว่างจะใช้ชื่อภาษาไทย')}</p>
         </div>
 
         <div className="flex flex-wrap gap-x-6 gap-y-2 text-sm">
           {form.optionType === 'size' && (
             <label className="flex items-center gap-2">
               <input type="checkbox" checked={form.isDefault} onChange={set('isDefault')} className="accent-primary-800" />
-              เป็นค่าเริ่มต้นของกลุ่มขนาด
+              {t('เป็นค่าเริ่มต้นของกลุ่มขนาด')}
             </label>
           )}
           <label className="flex items-center gap-2">
             <input type="checkbox" checked={form.isActive} onChange={set('isActive')} className="accent-primary-800" />
-            เปิดใช้งาน
+            {t('เปิดใช้งาน')}
           </label>
         </div>
       </form>

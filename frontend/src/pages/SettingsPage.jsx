@@ -6,14 +6,15 @@ import { ErrorState, LoadingState } from '../components/States';
 import { getSettings, updateSettings } from '../services/settings.service';
 import { showError, toastSuccess } from '../utils/alert';
 import { promptPayPayload } from '../utils/promptpay';
+import { t } from '../i18n';
 
 const FIELDS = [
-  { key: 'shopName', label: 'ชื่อร้าน', required: true, max: 150 },
-  { key: 'shopAddress', label: 'ที่อยู่', textarea: true, max: 300 },
-  { key: 'shopPhone', label: 'เบอร์โทร', max: 30 },
-  { key: 'taxId', label: 'เลขประจำตัวผู้เสียภาษี (ถ้ามี)', max: 20, hint: 'ตัวเลข 13 หลัก — แสดงบนใบเสร็จ' },
-  { key: 'promptpayId', label: 'PromptPay', max: 30, hint: 'เบอร์มือถือ 10 หลัก หรือเลขประจำตัว 13 หลัก — ใช้สร้าง QR ตอนรับชำระ' },
-  { key: 'receiptFooter', label: 'ข้อความท้ายใบเสร็จ', max: 200 },
+  { key: 'shopName', label: t('ชื่อร้าน'), required: true, max: 150 },
+  { key: 'shopAddress', label: t('ที่อยู่'), textarea: true, max: 300 },
+  { key: 'shopPhone', label: t('เบอร์โทร'), max: 30 },
+  { key: 'taxId', label: t('เลขประจำตัวผู้เสียภาษี (ถ้ามี)'), max: 20, hint: t('ตัวเลข 13 หลัก — แสดงบนใบเสร็จ') },
+  { key: 'promptpayId', label: 'PromptPay', max: 30, hint: t('เบอร์มือถือ 10 หลัก หรือเลขประจำตัว 13 หลัก — ใช้สร้าง QR ตอนรับชำระ') },
+  { key: 'receiptFooter', label: t('ข้อความท้ายใบเสร็จ'), max: 200 },
 ];
 
 /** ตั้งค่าข้อมูลร้าน (admin) — ใช้กับใบเสร็จและ QR PromptPay */
@@ -67,7 +68,7 @@ export default function SettingsPage() {
 
   return (
     <div className="mx-auto max-w-3xl">
-      <PageHeader title="ตั้งค่าร้าน" description="ข้อมูลที่แสดงบนใบเสร็จ และเลข PromptPay สำหรับรับชำระเงิน" />
+      <PageHeader title={t('ตั้งค่าร้าน')} description={t('ข้อมูลที่แสดงบนใบเสร็จ และเลข PromptPay สำหรับรับชำระเงิน')} />
       <form onSubmit={submit} className="card space-y-4 p-5">
         {FIELDS.map((f) => (
           <div key={f.key}>
@@ -98,11 +99,11 @@ export default function SettingsPage() {
               <div className="mt-2 flex items-center gap-3">
                 {qr ? (
                   <>
-                    <img src={qr} alt="ตัวอย่าง QR PromptPay" className="h-28 w-28 rounded-lg border border-slate-200" />
-                    <p className="text-xs text-slate-500">ตัวอย่าง QR (ไม่ระบุยอด) — ลองสแกนด้วยแอปธนาคารเพื่อตรวจว่าชื่อบัญชีถูกต้อง</p>
+                    <img src={qr} alt={t('ตัวอย่าง QR PromptPay')} className="h-28 w-28 rounded-lg border border-slate-200" />
+                    <p className="text-xs text-slate-500">{t('ตัวอย่าง QR (ไม่ระบุยอด) — ลองสแกนด้วยแอปธนาคารเพื่อตรวจว่าชื่อบัญชีถูกต้อง')}</p>
                   </>
                 ) : (
-                  <p className="text-xs text-danger">รูปแบบเลข PromptPay ไม่ถูกต้อง</p>
+                  <p className="text-xs text-danger">{t('รูปแบบเลข PromptPay ไม่ถูกต้อง')}</p>
                 )}
               </div>
             )}
@@ -110,7 +111,7 @@ export default function SettingsPage() {
         ))}
         <div className="flex justify-end">
           <button className="btn-primary" disabled={saving}>
-            {saving ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />} บันทึก
+            {saving ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />} {t('บันทึก')}
           </button>
         </div>
       </form>

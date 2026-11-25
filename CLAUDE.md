@@ -106,7 +106,10 @@ backend/scripts/db-migrate.js           — migration แบบ idempotent ส�
   - **เมนูหมดอัตโนมัติ** `menuAvailability.service`: `sync()` ตั้งเมนูที่วัตถุดิบไม่พอทำ 1 จานเป็น `sold_out` + `menus.auto_sold_out=1` และเปิดขายคืนเมื่อพอ (เฉพาะ auto — ที่ผู้ใช้ตั้งหมดเองไม่แตะ)
     controller เรียก `syncAndNotify()` (ส่ง `menu:updated`) หลังทุกการเปลี่ยนยอด/สูตร/สถานะวัตถุดิบ รวมถึงตอนออเดอร์ถูกปฏิเสธเพราะวัตถุดิบไม่พอ; ตั้งเมนูเป็นพร้อมขายเองตอนวัตถุดิบไม่พอ → 400
     `restockForOrder` คืนตามรายการที่ตัดจริงของออเดอร์นั้น (ไม่ใช่สูตรปัจจุบัน) เมื่อ **ยกเลิก**; ล็อกวัตถุดิบเรียงตาม id กัน deadlock
-  - ยังไม่ผูกสูตรกับตัวเลือก (เช่น ไข่ดาว/พิเศษ) — ตัดเฉพาะสูตรของเมนู
+  - **ตัวเลือกตัดสต็อกด้วย** (`inventory.service.lineUsage`): ต่อจาน = สูตรเมนู × (100 + Σ`menu_options.recipe_extra_percent`)/100 (เช่น พิเศษ = 50)
+    + วัตถุดิบของตัวเลือก `option_ingredients` (เช่น ไข่ดาว = ไข่ไก่ 1) แล้วคูณจำนวนจาน — รวมขนาดค่าเริ่มต้นที่ระบบเลือกให้;
+    แก้ที่ `GET/PUT /menu-options/:id/recipe` (admin, `recipe.service.get/setOptionRecipe`) — หน้า `/menu-options` ปุ่มหมวกเชฟ (`RecipeModal option=`);
+    เมนูหมดอัตโนมัติยังคิดจากสูตรเมนูอย่างเดียว; ค่าตั้งต้นใน `OPTION_RECIPES` ของ `database/recipes.js` (จับคู่ด้วยชื่อตัวเลือก)
 - **ผู้ใช้** (`user.service.js`, admin เท่านั้น) — ห้ามแก้ role/ปิด/ลบ/รีเซ็ตรหัส ของตัวเอง, ต้องเหลือ admin ที่ active ≥ 1 (ล็อก FOR UPDATE),
   username เก็บตัวพิมพ์เล็ก a-z0-9._- ; `authenticate` โหลดผู้ใช้จาก DB ทุก request จึงปิดใช้งาน/เปลี่ยน role มีผลทันที
 - **รายงาน/Dashboard** นับเฉพาะ `payment_status='paid'` ตาม `paid_at`
@@ -118,7 +121,7 @@ backend/scripts/db-migrate.js           — migration แบบ idempotent ส�
 ## ฐานข้อมูล
 
 - ฐานข้อมูลเดียว `food_pos`, `utf8mb4_unicode_ci`, InnoDB, timezone `+07:00` (ตั้งทั้ง pool และ session)
-- 14 ตาราง: roles, users, categories, menus, menu_options, order_sequences, orders, order_items, order_item_options, payments, ingredients, inventory_transactions, menu_ingredients, settings
+- 15 ตาราง: roles, users, categories, menus, menu_options, order_sequences, orders, order_items, order_item_options, payments, ingredients, inventory_transactions, menu_ingredients, option_ingredients, settings
 - `menu_options` ผูกได้ 3 ระดับ: `menu_id` (เมนูเดียว) / `category_id` (ทั้งหมวด) / ทั้งคู่ NULL (ทุกเมนู) — ห้ามกำหนดทั้งสองค่าพร้อมกัน (CHECK)
   `option_type`: `size` เลือกได้ 1 อย่าง (มี `is_default`), `topping` เลือกได้หลายอย่าง
 - สถานะ: `orders.status` = pending/preparing/completed/cancelled, `orders.payment_status` = unpaid/paid, `menus.status` = available/sold_out
@@ -128,6 +131,14 @@ backend/scripts/db-migrate.js           — migration แบบ idempotent ส�
 
 ## Frontend
 
+- **ภาษา TH/EN** (`src/i18n/`): ข้อความไทยในโค้ดเป็น key — ห่อทุกข้อความ UI ด้วย `t('ข้อความ')` / `t('ลบ "{0}"?', [name])` แล้วเพิ่มคำแปลใน `i18n/en.js`
+  (ไม่มีคำแปล -> แสดงไทย + เตือนใน console ตอน dev); คำเดียวกันคนละความหมายใช้ `t('ยกเลิก#status')`;
+  ข้อความจาก API (ไทย) ผ่าน `tApi()` (ใส่ไว้แล้วใน `api.js` userMessage, `toastSuccess`, `showError`) — ข้อความมีตัวแปรเพิ่มใน `patterns` ของ `en.js`;
+  เปลี่ยนภาษา = `setLang()` บันทึก `localStorage['food_pos_lang']` แล้ว reload (ค่าคงที่ระดับไฟล์จึงแปลได้) — ปุ่ม `components/LanguageSwitcher.jsx` ที่ Topbar และหน้า Login;
+  ชื่อเมนู/ตัวเลือกมีภาษาอังกฤษ `menus.name_en`, `menu_options.name_en` (ว่าง = ใช้ชื่อไทย; ตั้งต้นจาก `database/names-en.js`) และ snapshot `order_items.menu_name_en`, `order_item_options.option_name_en` —
+  แสดงด้วย `localName(obj)` / `localName(item, 'menuName')` เสมอ (ไม่ใช้ `.name` ตรง ๆ), หน้าจัดการแสดงอีกภาษาด้วย `components/OtherName.jsx`;
+  หมวด/วัตถุดิบ/หน่วยยังไม่มีชื่ออังกฤษ (แสดงภาษาไทย); หมายเหตุด่วนใน POS ใส่เป็นภาษาไทยเสมอ (ครัวอ่าน); วันที่ใช้ `getLocale()`, เงินใช้รูปแบบไทยเสมอ;
+  ตัวแปร local ห้ามชื่อ `t` (บังตัวแปลภาษา); `node scripts/responsive-check.mjs --lang en` ตรวจหน้าเป็นภาษาอังกฤษ
 - `src/services/api.js` — axios instance กลาง แนบ token จาก `localStorage['food_pos_token']`, ใส่ `error.userMessage` (ข้อความไทย) ให้ใช้แสดงผล
 - เรียก API ผ่านไฟล์ `src/services/<module>.service.js` เท่านั้น ไม่เรียก axios ตรงจาก component
 - ทุกหน้าที่โหลดข้อมูลต้องมี loading state + error state, การลบต้องยืนยันก่อน (SweetAlert2)
@@ -139,7 +150,8 @@ backend/scripts/db-migrate.js           — migration แบบ idempotent ส�
 - Auth: `contexts/AuthContext.jsx` (`useAuth()` → user, status, login, logout, hasRole), `components/ProtectedRoute.jsx` (`roles` prop), `layouts/MainLayout.jsx` (เพิ่มเมนู Sidebar ที่ `NAV_ITEMS`)
   API ตอบ 401 → `api.js` ล้าง token และยิง event `food-pos:unauthorized` ให้ AuthContext กลับหน้า Login
 - หน้าที่มี: `/login`, `/` (Dashboard สำหรับ admin/cashier, kitchen ถูก redirect ไป `/kitchen`), `/pos`, `/orders` (admin/cashier), `/kitchen` (ทุก role),
-  `/inventory` (admin/kitchen), `/reports` (admin, lazy), `/settings` (admin), `/orders/:id/receipt` (admin/cashier — นอก MainLayout สำหรับพิมพ์, `?print=1`),
+  `/inventory` (admin/kitchen), `/reports` (admin, lazy), `/settings` (admin), `/orders/:id/receipt` (admin/cashier — นอก MainLayout สำหรับพิมพ์, `?print=1`; ใบเสร็จกระดาษ 57 มม. ความสูงวัดจากเนื้อหา + ฉลากกล่อง 60x40 มม. 1 ดวง/กล่อง พิมพ์แยกรอบด้วยคิว `afterprint`),
+  `/orders/:id/kitchen-ticket` (ทุก role — ใบสั่งครัว 80x80 มม. ไม่มีราคา; `utils/kitchenTicket.js` พิมพ์ผ่าน iframe ซ่อน, POS พิมพ์อัตโนมัติเมื่อส่งออเดอร์ ปิดได้ต่อเครื่อง),
   `/menus` (ทุก role; แก้ไขได้เฉพาะ admin; สูตรวัตถุดิบ `components/RecipeModal.jsx` — admin แก้ (พิมพ์ชื่อเองได้ ชื่อใหม่ส่ง `{ name, unit }` ให้ `recipe.service` สร้างวัตถุดิบใน transaction เดียว), kitchen ดู), `/categories`, `/menu-options`,
   `/users` (admin), `/reports/print?from&to` (admin — นอก MainLayout, A4 สำหรับ "บันทึกเป็น PDF", lazy), `/system-status` (admin), `/change-password`, `/forbidden`
 - ตะกร้า POS จำไว้ใน `sessionStorage` (`utils/posCart.js`, ผูก userId) — เปลี่ยนหน้า/refresh ยังอยู่, ปิดแท็บหาย, `logout`/401 ใน AuthContext เรียก `clearPosCart()`; โหลด catalog แล้วอัปเดตชื่อ/ราคาในตะกร้าด้วย `buildLine`

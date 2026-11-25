@@ -266,28 +266,72 @@ async function applyOrderMovements(conn, changes, { orderId, note, userId, usedB
 }
 
 /**
- * ตัดสต็อกตามสูตรของเมนูในออเดอร์ — lines: [{ menuId, quantity }]
+ * ปริมาณวัตถุดิบที่ 1 รายการในออเดอร์ใช้ (หน่วย 1/1000) — ใช้ร่วมกันระหว่างตัดสต็อกจริงและแสดงผล
+ *   สูตรเมนู × (100 + Σ recipe_extra_percent ของตัวเลือก) / 100  (เช่น "พิเศษ" +50%)
+ *   + วัตถุดิบของตัวเลือก (option_ingredients) เช่น ไข่ดาว = ไข่ไก่ 1 ฟอง
+ *   ทั้งหมด × จำนวนจาน
+ * line: { menuId, quantity, optionIds }, menuRecipe: [{ menu_id, ingredient_id, quantity }],
+ * optionRows: [{ id, name, recipe_extra_percent }], optionRecipe: [{ option_id, ingredient_id, quantity }]
+ * คืน [{ ingredientId, milli, source: 'menu' | ชื่อตัวเลือก }]
+ */
+function lineUsage(line, menuRecipe, optionRows, optionRecipe) {
+  const opts = optionRows.filter((o) => line.optionIds.includes(o.id));
+  const extraPct = opts.reduce((sum, o) => sum + Number(o.recipe_extra_percent || 0), 0);
+  const usage = [];
+  for (const r of menuRecipe.filter((x) => x.menu_id === line.menuId)) {
+    usage.push({
+      ingredientId: r.ingredient_id,
+      milli: Math.round((toMilli(r.quantity) * (100 + extraPct)) / 100) * line.quantity,
+      source: 'menu',
+    });
+  }
+  for (const o of opts) {
+    for (const r of optionRecipe.filter((x) => x.option_id === o.id)) {
+      usage.push({ ingredientId: r.ingredient_id, milli: toMilli(r.quantity) * line.quantity, source: o.name });
+    }
+  }
+  return usage;
+}
+
+/** โหลดสูตรเมนู + สูตรตัวเลือก (เฉพาะวัตถุดิบที่เปิดใช้งาน) สำหรับ lines */
+async function loadUsageData(conn, lines) {
+  const menuIds = [...new Set(lines.map((l) => l.menuId))];
+  const optionIds = [...new Set(lines.flatMap((l) => l.optionIds || []))];
+  const [menuRecipe] = await conn.query(
+    `SELECT mi.menu_id, mi.ingredient_id, mi.quantity
+       FROM menu_ingredients mi JOIN ingredients i ON i.id = mi.ingredient_id
+      WHERE mi.menu_id IN (?) AND i.is_active = 1`,
+    [menuIds.length ? menuIds : [0]]
+  );
+  const [optionRows] = optionIds.length
+    ? await conn.query('SELECT id, name, recipe_extra_percent FROM menu_options WHERE id IN (?)', [optionIds])
+    : [[]];
+  const [optionRecipe] = optionIds.length
+    ? await conn.query(
+        `SELECT oi.option_id, oi.ingredient_id, oi.quantity
+           FROM option_ingredients oi JOIN ingredients i ON i.id = oi.ingredient_id
+          WHERE oi.option_id IN (?) AND i.is_active = 1`,
+        [optionIds]
+      )
+    : [[]];
+  return { menuRecipe, optionRows, optionRecipe };
+}
+
+/**
+ * ตัดสต็อกตามสูตรของเมนูและตัวเลือกในออเดอร์ — lines: [{ menuId, menuName, quantity, optionIds }]
  * ข้ามวัตถุดิบที่ถูกปิดใช้งาน; วัตถุดิบไม่พอ -> โยน 409 (err.stockShortage, details = รายการที่ขาด)
  * คืนรายการวัตถุดิบที่ถึงจุดเตือน (คงเหลือ <= ขั้นต่ำ) สำหรับแจ้งพนักงาน
  */
 async function deductForOrder(conn, { orderId, orderNo, lines, userId }) {
-  const menuIds = [...new Set(lines.map((l) => l.menuId))];
-  if (!menuIds.length) return [];
-  const [recipe] = await conn.query(
-    `SELECT mi.menu_id, mi.ingredient_id, mi.quantity, m.name AS menu_name
-       FROM menu_ingredients mi
-       JOIN ingredients i ON i.id = mi.ingredient_id
-       JOIN menus m ON m.id = mi.menu_id
-      WHERE mi.menu_id IN (?) AND i.is_active = 1`,
-    [menuIds]
-  );
+  if (!lines.length) return [];
+  const { menuRecipe, optionRows, optionRecipe } = await loadUsageData(conn, lines);
   const changes = new Map();
-  const usedBy = new Map(); // ingredientId -> Set<ชื่อเมนู> สำหรับข้อความแจ้งวัตถุดิบไม่พอ
+  const usedBy = new Map(); // ingredientId -> Set<ชื่อเมนู (ตัวเลือก)> สำหรับข้อความแจ้งวัตถุดิบไม่พอ
   for (const line of lines) {
-    for (const r of recipe.filter((x) => x.menu_id === line.menuId)) {
-      changes.set(r.ingredient_id, (changes.get(r.ingredient_id) || 0) - toMilli(r.quantity) * line.quantity);
-      if (!usedBy.has(r.ingredient_id)) usedBy.set(r.ingredient_id, new Set());
-      usedBy.get(r.ingredient_id).add(r.menu_name);
+    for (const u of lineUsage(line, menuRecipe, optionRows, optionRecipe)) {
+      changes.set(u.ingredientId, (changes.get(u.ingredientId) || 0) - u.milli);
+      if (!usedBy.has(u.ingredientId)) usedBy.set(u.ingredientId, new Set());
+      usedBy.get(u.ingredientId).add(u.source === 'menu' ? line.menuName : `${line.menuName} (${u.source})`);
     }
   }
   const moved = await applyOrderMovements(conn, changes, { orderId, note: `ขายออเดอร์ ${orderNo}`, userId, usedBy });

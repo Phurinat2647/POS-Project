@@ -1,6 +1,8 @@
 const ApiError = require('../utils/ApiError');
 const v = require('../utils/validate');
 const service = require('../services/menuOption.service');
+const recipeService = require('../services/recipe.service');
+const { parseRecipeItems } = require('./menu.controller');
 
 const TYPES = ['size', 'topping'];
 const SCOPES = ['all', 'category', 'menu'];
@@ -10,6 +12,7 @@ function parseBody(body = {}) {
   const data = {
     optionType: v.oneOf(body.optionType, TYPES, 'ประเภทตัวเลือก'),
     name: v.requiredString(body.name, 'ชื่อตัวเลือก', 100),
+    nameEn: v.optionalString(body.nameEn, 'ชื่อภาษาอังกฤษ', 100),
     extraPrice: v.money(body.extraPrice ?? 0, 'ราคาเพิ่ม', { max: 99999.99 }),
     isDefault: v.bool(body.isDefault),
     sortOrder: v.integer(body.sortOrder, 'ลำดับ', { min: 0, max: 9999, fallback: 0 }),
@@ -51,4 +54,19 @@ async function remove(req, res) {
   res.json({ success: true, data: null, message: 'ลบตัวเลือกสำเร็จ' });
 }
 
-module.exports = { list, create, update, remove };
+async function getRecipe(req, res) {
+  res.json({ success: true, data: await recipeService.getOptionRecipe(v.id(req.params.id)) });
+}
+
+/**
+ * PUT /menu-options/:id/recipe — วัตถุดิบที่ตัวเลือกใช้ (แทนที่ทั้งหมด)
+ * { extraPercent, items: [{ ingredientId, quantity }] | [{ name, unit, quantity }] }
+ */
+async function setRecipe(req, res) {
+  const extraPercent = v.money(req.body?.extraPercent ?? 0, 'ส่วนเพิ่มตามสูตรเมนู (%)', { max: 500 });
+  const items = parseRecipeItems(req.body?.items);
+  const data = await recipeService.setOptionRecipe(v.id(req.params.id), { extraPercent, items });
+  res.json({ success: true, data, message: 'บันทึกวัตถุดิบของตัวเลือกสำเร็จ' });
+}
+
+module.exports = { list, create, update, remove, getRecipe, setRecipe };

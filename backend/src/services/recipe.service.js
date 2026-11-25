@@ -70,6 +70,67 @@ async function resolveNewIngredients(conn, items) {
   return result;
 }
 
+/** แปลงวัตถุดิบใหม่ + ตรวจว่าไม่ซ้ำ มีอยู่จริง และเปิดใช้งาน -> [{ ingredientId, quantity }] */
+async function resolveAndValidate(conn, rawItems) {
+  const items = await resolveNewIngredients(conn, rawItems);
+  if (new Set(items.map((i) => i.ingredientId)).size !== items.length) {
+    throw ApiError.badRequest('มีวัตถุดิบซ้ำกันในสูตร');
+  }
+  if (items.length) {
+    const ids = items.map((i) => i.ingredientId);
+    const [rows] = await conn.query('SELECT id, name, is_active FROM ingredients WHERE id IN (?)', [ids]);
+    const byId = new Map(rows.map((r) => [r.id, r]));
+    for (const id of ids) {
+      const ing = byId.get(id);
+      if (!ing) throw ApiError.badRequest('ไม่พบวัตถุดิบที่เลือก');
+      if (!ing.is_active) throw ApiError.badRequest(`วัตถุดิบ "${ing.name}" ถูกปิดใช้งานแล้ว`);
+    }
+  }
+  return items;
+}
+
+// ---------------------------------------------------------------------
+// สูตรของตัวเลือก (เช่น ไข่ดาว / พิเศษ) — ตัดสต็อกพร้อมสูตรเมนู (inventory.service.lineUsage)
+//   extraPercent : เพิ่มปริมาณตามสูตรของเมนูที่สั่งกี่ % (menu_options.recipe_extra_percent)
+//   items        : วัตถุดิบที่ใช้เพิ่มต่อ 1 จาน (option_ingredients)
+// ---------------------------------------------------------------------
+
+async function assertOption(conn, optionId, lock = false) {
+  const [[opt]] = await conn.query(
+    `SELECT id, name, recipe_extra_percent FROM menu_options WHERE id = ?${lock ? ' FOR UPDATE' : ''}`,
+    [optionId]
+  );
+  if (!opt) throw ApiError.notFound('ไม่พบตัวเลือก');
+  return opt;
+}
+
+async function getOptionRecipe(optionId, conn = pool) {
+  const opt = await assertOption(conn, optionId);
+  const [rows] = await conn.query(
+    `SELECT oi.ingredient_id, oi.quantity, i.name, i.unit, i.quantity AS stock, i.is_active
+       FROM option_ingredients oi JOIN ingredients i ON i.id = oi.ingredient_id
+      WHERE oi.option_id = ?
+      ORDER BY i.name`,
+    [optionId]
+  );
+  return { extraPercent: opt.recipe_extra_percent, items: rows.map(toRecipeItem) };
+}
+
+async function setOptionRecipe(optionId, { extraPercent, items: rawItems }) {
+  return withTransaction(async (conn) => {
+    await assertOption(conn, optionId, true);
+    const items = await resolveAndValidate(conn, rawItems);
+    await conn.query('UPDATE menu_options SET recipe_extra_percent = ? WHERE id = ?', [extraPercent, optionId]);
+    await conn.query('DELETE FROM option_ingredients WHERE option_id = ?', [optionId]);
+    if (items.length) {
+      await conn.query('INSERT INTO option_ingredients (option_id, ingredient_id, quantity) VALUES ?', [
+        items.map((i) => [optionId, i.ingredientId, i.quantity]),
+      ]);
+    }
+    return getOptionRecipe(optionId, conn);
+  });
+}
+
 /**
  * แทนที่สูตรทั้งหมดของเมนู
  * items: [{ ingredientId, quantity }] หรือ [{ name, unit, quantity }] (วัตถุดิบใหม่ที่พิมพ์เอง)
@@ -80,22 +141,7 @@ async function setRecipe(menuId, rawItems) {
     const menu = await assertMenu(conn, menuId);
     if (!menu.is_active) throw ApiError.badRequest('เมนูนี้ถูกลบแล้ว');
 
-    const items = await resolveNewIngredients(conn, rawItems);
-    if (new Set(items.map((i) => i.ingredientId)).size !== items.length) {
-      throw ApiError.badRequest('มีวัตถุดิบซ้ำกันในสูตร');
-    }
-
-    if (items.length) {
-      const ids = items.map((i) => i.ingredientId);
-      const [rows] = await conn.query('SELECT id, name, is_active FROM ingredients WHERE id IN (?)', [ids]);
-      const byId = new Map(rows.map((r) => [r.id, r]));
-      for (const id of ids) {
-        const ing = byId.get(id);
-        if (!ing) throw ApiError.badRequest('ไม่พบวัตถุดิบที่เลือก');
-        if (!ing.is_active) throw ApiError.badRequest(`วัตถุดิบ "${ing.name}" ถูกปิดใช้งานแล้ว`);
-      }
-    }
-
+    const items = await resolveAndValidate(conn, rawItems);
     await conn.query('DELETE FROM menu_ingredients WHERE menu_id = ?', [menuId]);
     if (items.length) {
       await conn.query('INSERT INTO menu_ingredients (menu_id, ingredient_id, quantity) VALUES ?', [
@@ -106,4 +152,4 @@ async function setRecipe(menuId, rawItems) {
   });
 }
 
-module.exports = { getRecipe, setRecipe };
+module.exports = { getRecipe, setRecipe, getOptionRecipe, setOptionRecipe };

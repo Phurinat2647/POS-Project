@@ -6,11 +6,12 @@ import { getSalesReport } from '../services/report.service';
 import { getSettings } from '../services/settings.service';
 import { formatCurrency, formatDateTime, formatNumber, formatShortDate } from '../utils/format';
 import { ORDER_TYPE } from '../utils/labels';
+import { getLocale, localName, t } from '../i18n';
 
-const METHOD_LABEL = { cash: 'เงินสด', promptpay: 'PromptPay' };
+const METHOD_LABEL = { cash: t('เงินสด'), promptpay: 'PromptPay' };
 
 const thaiDate = (ymd) =>
-  new Date(`${ymd}T00:00:00`).toLocaleDateString('th-TH', { year: 'numeric', month: 'long', day: 'numeric' });
+  new Date(`${ymd}T00:00:00`).toLocaleDateString(getLocale(), { year: 'numeric', month: 'long', day: 'numeric' });
 
 /**
  * รายงานยอดขายสำหรับพิมพ์ / บันทึกเป็น PDF (กระดาษ A4) — เปิดในแท็บใหม่จากหน้ารายงาน
@@ -27,7 +28,7 @@ export default function ReportPrintPage() {
 
   useEffect(() => {
     if (!from) {
-      setError('ไม่ได้ระบุช่วงวันที่');
+      setError(t('ไม่ได้ระบุช่วงวันที่'));
       return;
     }
     Promise.all([getSalesReport({ from, to }), getSettings()])
@@ -43,7 +44,7 @@ export default function ReportPrintPage() {
   }, [data, params]);
 
   useEffect(() => {
-    if (from) document.title = `รายงานยอดขาย ${from === to ? from : `${from}_${to}`}`;
+    if (from) document.title = t('รายงานยอดขาย {0}', [from === to ? from : `${from}_${to}`]);
   }, [from, to]);
 
   if (error) return <ErrorState message={error} />;
@@ -60,13 +61,13 @@ export default function ReportPrintPage() {
 
       <div className="mx-auto mb-4 flex max-w-[210mm] flex-wrap items-center justify-center gap-2 px-4 print:hidden">
         <button className="btn-primary" onClick={() => window.print()}>
-          <Printer size={16} /> พิมพ์ / บันทึกเป็น PDF
+          <Printer size={16} /> {t('พิมพ์ / บันทึกเป็น PDF')}
         </button>
         <button className="btn-outline" onClick={() => window.close()}>
-          <X size={16} /> ปิด
+          <X size={16} /> {t('ปิด')}
         </button>
         <p className="w-full text-center text-xs text-slate-500">
-          บันทึกเป็นไฟล์ PDF: กดพิมพ์ แล้วเลือกเครื่องพิมพ์ปลายทางเป็น “บันทึกเป็น PDF” (Save as PDF)
+          {t('บันทึกเป็นไฟล์ PDF: กดพิมพ์ แล้วเลือกเครื่องพิมพ์ปลายทางเป็น “บันทึกเป็น PDF” (Save as PDF)')}
         </p>
       </div>
 
@@ -75,85 +76,85 @@ export default function ReportPrintPage() {
           <div>
             <h1 className="text-lg font-bold">{shop.shopName}</h1>
             {shop.shopAddress && <p className="text-slate-600">{shop.shopAddress}</p>}
-            {shop.shopPhone && <p className="text-slate-600">โทร {shop.shopPhone}</p>}
+            {shop.shopPhone && <p className="text-slate-600">{t('โทร')} {shop.shopPhone}</p>}
           </div>
           <div className="text-right">
-            <h2 className="text-base font-bold">รายงานยอดขาย</h2>
+            <h2 className="text-base font-bold">{t('รายงานยอดขาย')}</h2>
             <p>{rangeText}</p>
-            <p className="text-[10px] text-slate-500">พิมพ์เมื่อ {formatDateTime(new Date())}</p>
+            <p className="text-[10px] text-slate-500">{t('พิมพ์เมื่อ')} {formatDateTime(new Date())}</p>
           </div>
         </header>
 
-        <Section title="สรุป">
+        <Section title={t('สรุป')}>
           <div className="grid grid-cols-4 gap-2">
-            <Stat label="ยอดขายสุทธิ" value={formatCurrency(s.netSales)} strong />
-            <Stat label="จำนวนบิล" value={formatNumber(s.bills)} />
-            <Stat label="เฉลี่ยต่อบิล" value={formatCurrency(s.averagePerBill)} />
-            <Stat label="จำนวนจาน/แก้ว" value={formatNumber(s.itemsSold)} />
+            <Stat label={t('ยอดขายสุทธิ')} value={formatCurrency(s.netSales)} strong />
+            <Stat label={t('จำนวนบิล')} value={formatNumber(s.bills)} />
+            <Stat label={t('เฉลี่ยต่อบิล')} value={formatCurrency(s.averagePerBill)} />
+            <Stat label={t('จำนวนจาน/แก้ว')} value={formatNumber(s.itemsSold)} />
           </div>
           <table className="mt-3 w-full">
             <tbody>
-              <KV label="ยอดก่อนส่วนลด" value={formatCurrency(s.grossSales)} />
-              <KV label="ส่วนลดรวม" value={`- ${formatCurrency(s.discount)}`} />
-              <KV label="ยอดขายสุทธิ" value={formatCurrency(s.netSales)} bold />
-              <KV label={`ออเดอร์ที่ยกเลิก (${formatNumber(s.cancelledOrders)} ออเดอร์)`} value={formatCurrency(s.cancelledAmount)} muted />
-              <KV label={`ออเดอร์ค้างชำระ (${formatNumber(s.unpaidOrders)} ออเดอร์) — ไม่นับในยอดขาย`} value={formatCurrency(s.unpaidAmount)} muted />
+              <KV label={t('ยอดก่อนส่วนลด')} value={formatCurrency(s.grossSales)} />
+              <KV label={t('ส่วนลดรวม')} value={`- ${formatCurrency(s.discount)}`} />
+              <KV label={t('ยอดขายสุทธิ')} value={formatCurrency(s.netSales)} bold />
+              <KV label={t('ออเดอร์ที่ยกเลิก ({0} ออเดอร์)', [formatNumber(s.cancelledOrders)])} value={formatCurrency(s.cancelledAmount)} muted />
+              <KV label={t('ออเดอร์ค้างชำระ ({0} ออเดอร์) — ไม่นับในยอดขาย', [formatNumber(s.unpaidOrders)])} value={formatCurrency(s.unpaidAmount)} muted />
             </tbody>
           </table>
         </Section>
 
         <div className="grid grid-cols-2 gap-6">
-          <Section title="แยกตามวิธีชำระเงิน">
+          <Section title={t('แยกตามวิธีชำระเงิน')}>
             <Table
-              head={['วิธีชำระ', 'บิล', 'ยอดขาย']}
+              head={[t('วิธีชำระ'), t('บิล'), t('ยอดขาย')]}
               rows={report.byMethod.map((m) => [METHOD_LABEL[m.method] || m.method, formatNumber(m.bills), formatCurrency(m.sales)])}
             />
           </Section>
-          <Section title="แยกตามหมวดหมู่ (ก่อนส่วนลด)">
+          <Section title={t('แยกตามหมวดหมู่ (ก่อนส่วนลด)')}>
             <Table
-              head={['หมวดหมู่', 'จำนวน', 'ยอดขาย']}
+              head={[t('หมวดหมู่'), t('จำนวน'), t('ยอดขาย')]}
               rows={report.byCategory.map((c) => [c.name || '-', formatNumber(c.quantity), formatCurrency(c.sales)])}
-              empty="ไม่มีข้อมูล"
+              empty={t('ไม่มีข้อมูล')}
             />
           </Section>
         </div>
 
         {!singleDay && (
-          <Section title="ยอดขายรายวัน">
+          <Section title={t('ยอดขายรายวัน')}>
             <Table
-              head={['วันที่', 'บิล', 'ยอดขาย']}
+              head={[t('วันที่'), t('บิล'), t('ยอดขาย')]}
               rows={report.daily.map((d) => [formatShortDate(d.date), formatNumber(d.bills), formatCurrency(d.sales)])}
             />
           </Section>
         )}
 
-        <Section title="ยอดขายรายเมนู (ก่อนส่วนลด)">
+        <Section title={t('ยอดขายรายเมนู (ก่อนส่วนลด)')}>
           <Table
-            head={['#', 'เมนู', 'หมวดหมู่', 'จำนวน', 'ยอดขาย']}
-            rows={report.topMenus.map((m, i) => [i + 1, m.name, m.category || '-', formatNumber(m.quantity), formatCurrency(m.sales)])}
-            empty="ไม่มีรายการขาย"
+            head={['#', t('เมนู'), t('หมวดหมู่'), t('จำนวน'), t('ยอดขาย')]}
+            rows={report.topMenus.map((m, i) => [i + 1, localName(m), m.category || '-', formatNumber(m.quantity), formatCurrency(m.sales)])}
+            empty={t('ไม่มีรายการขาย')}
           />
         </Section>
 
-        <Section title={`รายการบิล (${formatNumber(report.orders.length)} บิล)`}>
+        <Section title={t('รายการบิล ({0} บิล)', [formatNumber(report.orders.length)])}>
           <Table
-            head={['เลขออเดอร์', 'วันเวลาชำระ', 'ประเภท', 'รายการ', 'ยอดรวม', 'ส่วนลด', 'สุทธิ', 'ชำระด้วย']}
+            head={[t('เลขออเดอร์'), t('วันเวลาชำระ'), t('ประเภท'), t('รายการ'), t('ยอดรวม'), t('ส่วนลด'), t('สุทธิ'), t('ชำระด้วย')]}
             rows={report.orders.map((o) => [
               o.orderNo,
               formatDateTime(o.paidAt),
-              o.orderType === 'dine_in' && o.tableNo ? `โต๊ะ ${o.tableNo}` : ORDER_TYPE[o.orderType],
+              o.orderType === 'dine_in' && o.tableNo ? t('โต๊ะ {0}', [o.tableNo]) : ORDER_TYPE[o.orderType],
               formatNumber(o.itemCount),
               formatCurrency(o.subtotal),
               o.discount ? formatCurrency(o.discount) : '-',
               formatCurrency(o.total),
               METHOD_LABEL[o.method] || o.method,
             ])}
-            empty="ไม่มีบิลที่ชำระแล้วในช่วงนี้"
+            empty={t('ไม่มีบิลที่ชำระแล้วในช่วงนี้')}
           />
         </Section>
 
         <footer className="mt-6 border-t border-slate-300 pt-2 text-[10px] text-slate-500">
-          นับเฉพาะออเดอร์ที่ชำระเงินแล้ว ตามวันที่ชำระ · ยอดแยกหมวด/เมนูเป็นยอดก่อนส่วนลดท้ายบิล
+          {t('นับเฉพาะออเดอร์ที่ชำระเงินแล้ว ตามวันที่ชำระ · ยอดแยกหมวด/เมนูเป็นยอดก่อนส่วนลดท้ายบิล')}
         </footer>
       </article>
     </div>
@@ -188,8 +189,8 @@ function KV({ label, value, bold, muted }) {
 }
 
 /** ตาราง: คอลัมน์แรกชิดซ้าย ที่เหลือชิดขวา (ตัวเลข) ยกเว้นคอลัมน์ข้อความ */
-function Table({ head, rows, empty = 'ไม่มีข้อมูล' }) {
-  const textCols = new Set(head.map((h, i) => (['เมนู', 'หมวดหมู่', 'ประเภท', 'ชำระด้วย', 'วันเวลาชำระ'].includes(h) || i === 0 ? i : -1)));
+function Table({ head, rows, empty = t('ไม่มีข้อมูล') }) {
+  const textCols = new Set(head.map((h, i) => ([t('เมนู'), t('หมวดหมู่'), t('ประเภท'), t('ชำระด้วย'), t('วันเวลาชำระ')].includes(h) || i === 0 ? i : -1)));
   return (
     <table className="w-full border-collapse">
       <thead className="table-header-group">

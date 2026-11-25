@@ -1,3 +1,6 @@
+import { getLocale } from '../i18n';
+
+// ตัวเลข/เงินใช้รูปแบบไทยเสมอ (฿), วันที่ใช้ภาษาตามที่เลือก
 const currencyFmt = new Intl.NumberFormat('th-TH', {
   style: 'currency',
   currency: 'THB',
@@ -15,7 +18,7 @@ export const formatCompactBaht = (value) =>
 
 export const formatDateTime = (value) =>
   value
-    ? new Date(value).toLocaleString('th-TH', {
+    ? new Date(value).toLocaleString(getLocale(), {
         dateStyle: 'medium',
         timeStyle: 'short',
       })
@@ -24,8 +27,8 @@ export const formatDateTime = (value) =>
 /** 'YYYY-MM-DD' -> 'จ. 7 พ.ย.' (ไม่แปลง timezone) */
 export const formatShortDate = (ymd) => {
   const [y, m, d] = ymd.split('-').map(Number);
-  return new Date(y, m - 1, d).toLocaleDateString('th-TH', { weekday: 'short', day: 'numeric', month: 'short' });
+  return new Date(y, m - 1, d).toLocaleDateString(getLocale(), { weekday: 'short', day: 'numeric', month: 'short' });
 };
 
 export const formatTime = (value) =>
-  value ? new Date(value).toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' }) : '-';
+  value ? new Date(value).toLocaleTimeString(getLocale(), { hour: '2-digit', minute: '2-digit' }) : '-';

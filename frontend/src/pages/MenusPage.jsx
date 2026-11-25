@@ -11,6 +11,8 @@ import { createMenu, deleteMenu, getMenus, updateMenu, updateMenuStatus } from '
 import { confirmDelete, showError, toastSuccess } from '../utils/alert';
 import { formatCurrency } from '../utils/format';
 import { MENU_STATUS } from '../utils/labels';
+import { localName, t } from '../i18n';
+import OtherName from '../components/OtherName';
 
 const MAX_IMAGE_MB = 5;
 
@@ -31,8 +33,8 @@ export default function MenusPage() {
 
   // หน่วงการค้นหาเล็กน้อยระหว่างพิมพ์
   useEffect(() => {
-    const t = setTimeout(() => setFilters((f) => ({ ...f, search: searchInput.trim() })), 300);
-    return () => clearTimeout(t);
+    const tx = setTimeout(() => setFilters((f) => ({ ...f, search: searchInput.trim() })), 300);
+    return () => clearTimeout(tx);
   }, [searchInput]);
 
   const load = useCallback(async () => {
@@ -73,7 +75,7 @@ export default function MenusPage() {
   };
 
   const handleDelete = async (menu) => {
-    if (!(await confirmDelete(`ลบเมนู "${menu.name}"?`, 'ถ้าเมนูนี้เคยถูกขาย ระบบจะเก็บไว้เป็นประวัติแต่จะไม่แสดงในหน้าขาย'))) return;
+    if (!(await confirmDelete(t('ลบเมนู "{0}"?', [localName(menu)]), t('ถ้าเมนูนี้เคยถูกขาย ระบบจะเก็บไว้เป็นประวัติแต่จะไม่แสดงในหน้าขาย')))) return;
     try {
       const res = await deleteMenu(menu.id);
       toastSuccess(res.message);
@@ -88,12 +90,12 @@ export default function MenusPage() {
   return (
     <div className="mx-auto max-w-7xl">
       <PageHeader
-        title="เมนูอาหาร"
-        description={isAdmin ? 'เพิ่ม แก้ไข และกำหนดสถานะเมนู' : 'ตั้งสถานะเมนูพร้อมขาย / หมด'}
+        title={t('เมนูอาหาร')}
+        description={isAdmin ? t('เพิ่ม แก้ไข และกำหนดสถานะเมนู') : t('ตั้งสถานะเมนูพร้อมขาย / หมด')}
         actions={
           isAdmin && (
             <button className="btn-primary" onClick={() => setEditing({})} disabled={categories.length === 0}>
-              <Plus size={16} /> เพิ่มเมนู
+              <Plus size={16} /> {t('เพิ่มเมนู')}
             </button>
           )
         }
@@ -104,24 +106,24 @@ export default function MenusPage() {
           <Search size={16} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
           <input
             className="input pl-9"
-            placeholder="ค้นหาชื่อเมนู"
+            placeholder={t('ค้นหาชื่อเมนู')}
             value={searchInput}
             onChange={(e) => setSearchInput(e.target.value)}
-            aria-label="ค้นหาชื่อเมนู"
+            aria-label={t('ค้นหาชื่อเมนู')}
           />
         </div>
-        <select className="input sm:w-48" value={filters.categoryId} onChange={setFilter('categoryId')} aria-label="หมวดหมู่">
-          <option value="">ทุกหมวดหมู่</option>
+        <select className="input sm:w-48" value={filters.categoryId} onChange={setFilter('categoryId')} aria-label={t('หมวดหมู่')}>
+          <option value="">{t('ทุกหมวดหมู่')}</option>
           {categories.map((c) => (
             <option key={c.id} value={c.id}>
               {c.name}
             </option>
           ))}
         </select>
-        <select className="input sm:w-40" value={filters.status} onChange={setFilter('status')} aria-label="สถานะ">
-          <option value="">ทุกสถานะ</option>
-          <option value="available">พร้อมขาย</option>
-          <option value="sold_out">หมด</option>
+        <select className="input sm:w-40" value={filters.status} onChange={setFilter('status')} aria-label={t('สถานะ')}>
+          <option value="">{t('ทุกสถานะ')}</option>
+          <option value="available">{t('พร้อมขาย')}</option>
+          <option value="sold_out">{t('หมด')}</option>
         </select>
       </div>
 
@@ -135,11 +137,11 @@ export default function MenusPage() {
         </div>
       ) : menus.length === 0 ? (
         <div className="card">
-          <EmptyState text={filters.search || filters.categoryId || filters.status ? 'ไม่พบเมนูที่ตรงกับเงื่อนไข' : 'ยังไม่มีเมนู'} />
+          <EmptyState text={filters.search || filters.categoryId || filters.status ? t('ไม่พบเมนูที่ตรงกับเงื่อนไข') : t('ยังไม่มีเมนู')} />
         </div>
       ) : (
         <>
-          <p className="mb-2 text-xs text-slate-500">ทั้งหมด {menus.length} เมนู</p>
+          <p className="mb-2 text-xs text-slate-500">{t('ทั้งหมด')} {menus.length} {t('เมนู')}</p>
           <div className={`grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 ${loading ? 'opacity-60' : ''}`}>
             {menus.map((m) => (
               <MenuCard
@@ -190,22 +192,23 @@ function MenuCard({ menu, isAdmin, busy, onToggle, onEdit, onDelete, onRecipe })
   return (
     <div className="card flex flex-col overflow-hidden">
       <div className="relative">
-        <MenuImage src={menu.imageUrl} alt={menu.name} className={`aspect-[4/3] w-full ${soldOut ? 'grayscale' : ''}`} />
+        <MenuImage src={menu.imageUrl} alt={localName(menu)} className={`aspect-[4/3] w-full ${soldOut ? 'grayscale' : ''}`} />
         <span className={`badge absolute left-2 top-2 ${MENU_STATUS[menu.status].className}`}>
           {MENU_STATUS[menu.status].label}
-          {soldOut && menu.autoSoldOut && ' · วัตถุดิบไม่พอ'}
+          {soldOut && menu.autoSoldOut && t(' · วัตถุดิบไม่พอ')}
         </span>
       </div>
       <div className="flex flex-1 flex-col p-3">
         <div className="text-xs text-slate-500">{menu.categoryName}</div>
-        <div className="line-clamp-2 font-medium leading-snug">{menu.name}</div>
+        <div className="line-clamp-2 font-medium leading-snug">{localName(menu)}</div>
+        <OtherName item={menu} />
         <div className="mt-1 font-semibold text-primary-800 tabular-nums">{formatCurrency(menu.price)}</div>
         {onRecipe && (
           <button
             onClick={onRecipe}
             className="mt-1.5 flex w-fit items-center gap-1 text-xs text-slate-500 hover:text-primary-800 hover:underline"
           >
-            <BookOpen size={13} /> สูตรวัตถุดิบ
+            <BookOpen size={13} /> {t('สูตรวัตถุดิบ')}
           </button>
         )}
         <div className="mt-auto flex items-center gap-1 pt-3">
@@ -214,14 +217,14 @@ function MenuCard({ menu, isAdmin, busy, onToggle, onEdit, onDelete, onRecipe })
             disabled={busy}
             className={`btn flex-1 whitespace-nowrap px-2 py-1.5 text-xs ${soldOut ? 'bg-primary-50 text-primary-800 hover:bg-primary-100' : 'bg-red-50 text-red-700 hover:bg-red-100'}`}
           >
-            {soldOut ? 'เปิดขาย' : 'ตั้งเป็นหมด'}
+            {soldOut ? t('เปิดขาย') : t('ตั้งเป็นหมด')}
           </button>
           {isAdmin && (
             <>
-              <button className="btn-icon" onClick={onEdit} aria-label={`แก้ไข ${menu.name}`}>
+              <button className="btn-icon" onClick={onEdit} aria-label={t('แก้ไข {0}', [localName(menu)])}>
                 <Pencil size={16} />
               </button>
-              <button className="btn-icon hover:text-danger" onClick={onDelete} aria-label={`ลบ ${menu.name}`}>
+              <button className="btn-icon hover:text-danger" onClick={onDelete} aria-label={t('ลบ {0}', [localName(menu)])}>
                 <Trash2 size={16} />
               </button>
             </>
@@ -237,6 +240,7 @@ function MenuForm({ initial, categories, onClose, onSaved }) {
   const [form, setForm] = useState({
     categoryId: initial.categoryId ?? categories[0]?.id ?? '',
     name: initial.name ?? '',
+    nameEn: initial.nameEn ?? '',
     description: initial.description ?? '',
     price: initial.price ?? '',
     status: initial.status ?? 'available',
@@ -256,8 +260,8 @@ function MenuForm({ initial, categories, onClose, onSaved }) {
     const file = e.target.files?.[0];
     e.target.value = '';
     if (!file) return;
-    if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) return setError('รองรับเฉพาะไฟล์ JPG, PNG หรือ WEBP');
-    if (file.size > MAX_IMAGE_MB * 1024 * 1024) return setError(`ไฟล์รูปภาพต้องมีขนาดไม่เกิน ${MAX_IMAGE_MB} MB`);
+    if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) return setError(t('รองรับเฉพาะไฟล์ JPG, PNG หรือ WEBP'));
+    if (file.size > MAX_IMAGE_MB * 1024 * 1024) return setError(t('ไฟล์รูปภาพต้องมีขนาดไม่เกิน {0} MB', [MAX_IMAGE_MB]));
     setError(null);
     setImageFile(file);
     setPreview(URL.createObjectURL(file));
@@ -272,15 +276,15 @@ function MenuForm({ initial, categories, onClose, onSaved }) {
 
   const submit = async (e) => {
     e.preventDefault();
-    if (!form.categoryId) return setError('กรุณาเลือกหมวดหมู่');
-    if (!form.name.trim()) return setError('กรุณากรอกชื่อเมนู');
+    if (!form.categoryId) return setError(t('กรุณาเลือกหมวดหมู่'));
+    if (!form.name.trim()) return setError(t('กรุณากรอกชื่อเมนู'));
     const price = Number(form.price);
-    if (form.price === '' || !Number.isFinite(price) || price < 0) return setError('กรุณากรอกราคาเป็นตัวเลขที่ไม่ติดลบ');
+    if (form.price === '' || !Number.isFinite(price) || price < 0) return setError(t('กรุณากรอกราคาเป็นตัวเลขที่ไม่ติดลบ'));
 
     setSaving(true);
     setError(null);
     try {
-      const payload = { ...form, name: form.name.trim(), imageFile, removeImage: isEdit && removeImage && !imageFile };
+      const payload = { ...form, name: form.name.trim(), nameEn: form.nameEn.trim(), imageFile, removeImage: isEdit && removeImage && !imageFile };
       const res = isEdit ? await updateMenu(initial.id, payload) : await createMenu(payload);
       toastSuccess(res.message);
       onSaved();
@@ -293,17 +297,17 @@ function MenuForm({ initial, categories, onClose, onSaved }) {
   return (
     <Modal
       open
-      title={isEdit ? 'แก้ไขเมนู' : 'เพิ่มเมนู'}
+      title={isEdit ? t('แก้ไขเมนู') : t('เพิ่มเมนู')}
       onClose={onClose}
       busy={saving}
       size="lg"
       footer={
         <>
           <button className="btn-outline" onClick={onClose} disabled={saving}>
-            ยกเลิก
+            {t('ยกเลิก')}
           </button>
           <button className="btn-primary" type="submit" form="menu-form" disabled={saving}>
-            {saving ? 'กำลังบันทึก...' : 'บันทึก'}
+            {saving ? t('กำลังบันทึก...') : t('บันทึก')}
           </button>
         </>
       }
@@ -316,16 +320,16 @@ function MenuForm({ initial, categories, onClose, onSaved }) {
         )}
 
         <div>
-          <span className="label">รูปภาพ</span>
+          <span className="label">{t('รูปภาพ')}</span>
           <div className="relative overflow-hidden rounded-xl border border-dashed border-slate-300">
             {preview ? (
               <>
-                <img src={preview} alt="ตัวอย่างรูปเมนู" className="aspect-[4/3] w-full object-cover" />
+                <img src={preview} alt={t('ตัวอย่างรูปเมนู')} className="aspect-[4/3] w-full object-cover" />
                 <button
                   type="button"
                   onClick={clearImage}
                   className="absolute right-1.5 top-1.5 rounded-full bg-black/60 p-1 text-white hover:bg-black/80"
-                  aria-label="ลบรูปภาพ"
+                  aria-label={t('ลบรูปภาพ')}
                 >
                   <X size={14} />
                 </button>
@@ -337,27 +341,32 @@ function MenuForm({ initial, categories, onClose, onSaved }) {
                 className="flex aspect-[4/3] w-full flex-col items-center justify-center gap-1 text-slate-400 hover:bg-slate-50"
               >
                 <ImagePlus size={28} />
-                <span className="text-xs">เลือกรูปภาพ</span>
+                <span className="text-xs">{t('เลือกรูปภาพ')}</span>
               </button>
             )}
           </div>
           {preview && (
             <button type="button" onClick={() => fileRef.current?.click()} className="mt-2 text-xs text-primary-800 hover:underline">
-              เปลี่ยนรูป
+              {t('เปลี่ยนรูป')}
             </button>
           )}
-          <p className="mt-1 text-xs text-slate-400">JPG, PNG, WEBP ไม่เกิน {MAX_IMAGE_MB} MB</p>
+          <p className="mt-1 text-xs text-slate-400">{t('JPG, PNG, WEBP ไม่เกิน')} {MAX_IMAGE_MB} MB</p>
           <input ref={fileRef} type="file" accept="image/jpeg,image/png,image/webp" className="hidden" onChange={pickImage} />
         </div>
 
         <div className="space-y-4">
           <div>
-            <label className="label" htmlFor="menu-name">ชื่อเมนู *</label>
+            <label className="label" htmlFor="menu-name">{t('ชื่อเมนู *')}</label>
             <input id="menu-name" className="input" value={form.name} onChange={set('name')} maxLength={150} autoFocus />
+          </div>
+          <div>
+            <label className="label" htmlFor="menu-name-en">{t('ชื่อภาษาอังกฤษ (ถ้ามี)')}</label>
+            <input id="menu-name-en" className="input" lang="en" value={form.nameEn} onChange={set('nameEn')} maxLength={150} placeholder={t('เช่น Pad Thai with Shrimp')} />
+            <p className="mt-1 text-xs text-slate-500">{t('แสดงเมื่อเลือกภาษา EN — เว้นว่างจะใช้ชื่อภาษาไทย')}</p>
           </div>
           <div className="grid gap-4 sm:grid-cols-2">
             <div>
-              <label className="label" htmlFor="menu-cat">หมวดหมู่ *</label>
+              <label className="label" htmlFor="menu-cat">{t('หมวดหมู่ *')}</label>
               <select id="menu-cat" className="input" value={form.categoryId} onChange={set('categoryId')}>
                 {categories.map((c) => (
                   <option key={c.id} value={c.id}>
@@ -367,16 +376,16 @@ function MenuForm({ initial, categories, onClose, onSaved }) {
               </select>
             </div>
             <div>
-              <label className="label" htmlFor="menu-price">ราคา (บาท) *</label>
+              <label className="label" htmlFor="menu-price">{t('ราคา (บาท) *')}</label>
               <input id="menu-price" type="number" min={0} step="0.01" inputMode="decimal" className="input" value={form.price} onChange={set('price')} />
             </div>
           </div>
           <div>
-            <label className="label" htmlFor="menu-desc">คำอธิบาย</label>
+            <label className="label" htmlFor="menu-desc">{t('คำอธิบาย')}</label>
             <textarea id="menu-desc" rows={2} className="input" value={form.description} onChange={set('description')} maxLength={500} />
           </div>
           <div>
-            <span className="label">สถานะ</span>
+            <span className="label">{t('สถานะ')}</span>
             <div className="flex gap-4 text-sm">
               {Object.entries(MENU_STATUS).map(([value, { label }]) => (
                 <label key={value} className="flex items-center gap-2">
@@ -391,3 +400,4 @@ function MenuForm({ initial, categories, onClose, onSaved }) {
     </Modal>
   );
 }
+
