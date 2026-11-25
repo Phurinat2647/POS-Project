@@ -1,7 +1,7 @@
 /**
  * ตรวจ Responsive อัตโนมัติด้วย Chrome/Edge แบบ headless (Chrome DevTools Protocol — ไม่ต้องติดตั้ง package เพิ่ม)
  *
- *   node scripts/responsive-check.mjs [--shots <โฟลเดอร์>]
+ *   node scripts/responsive-check.mjs [--shots <โฟลเดอร์>] [--lang en]
  *
  * ต้องรัน backend (:5000) และ frontend dev server (:5173) ก่อน
  * แนะนำให้รัน backend กับฐานข้อมูลทดสอบ: DB_NAME=food_pos_test (สร้างโดย `npm test` ใน backend)
@@ -21,6 +21,8 @@ const APP_URL = process.env.APP_URL || 'http://localhost:5173';
 const PORT = 9333;
 const shotsIdx = process.argv.indexOf('--shots');
 const SHOTS_DIR = shotsIdx > 0 ? path.resolve(process.argv[shotsIdx + 1]) : null;
+const langIdx = process.argv.indexOf('--lang');
+const LANG = langIdx > 0 && process.argv[langIdx + 1] === 'en' ? 'en' : 'th'; // ภาษาของหน้าเว็บ (localStorage food_pos_lang)
 
 const BROWSERS = [
   process.env.BROWSER,
@@ -99,7 +101,7 @@ async function main() {
       if (!login.success) throw new Error(`login ${role} ไม่สำเร็จ: ${login.message}`);
 
       await navigate(`${APP_URL}/login`);
-      await evaluate(`localStorage.setItem('food_pos_token', ${JSON.stringify(login.data.token)})`);
+      await evaluate(`localStorage.setItem('food_pos_token', ${JSON.stringify(login.data.token)}); localStorage.setItem('food_pos_lang', '${LANG}')`);
 
       for (const vp of VIEWPORTS) {
         await cdp.send('Emulation.setDeviceMetricsOverride', {

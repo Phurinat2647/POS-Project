@@ -1,3 +1,4 @@
+import { t } from '../i18n';
 /**
  * พิมพ์ใบสั่งครัว (80x80 มม.) โดยไม่ต้องเปิดแท็บใหม่
  * โหลดหน้า /orders/:id/kitchen-ticket?print=1 ใน iframe ที่ซ่อนไว้ — หน้านั้นสั่ง window.print() เอง
@@ -8,7 +9,7 @@ const FRAME_TIMEOUT_MS = 5 * 60 * 1000;
 
 export function printKitchenTicket(orderId) {
   const frame = document.createElement('iframe');
-  frame.title = 'ใบสั่งครัว';
+  frame.title = t('ใบสั่งครัว');
   frame.setAttribute('aria-hidden', 'true');
   // ต้องมีขนาดจริงให้จัดหน้าได้ แต่อยู่นอกจอ (display:none จะพิมพ์ไม่ได้)
   Object.assign(frame.style, { position: 'fixed', left: '-10000px', top: '0', width: '80mm', height: '80mm', border: '0' });

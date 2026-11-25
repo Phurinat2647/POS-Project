@@ -10,10 +10,11 @@ export const getMenus = async (params = {}) => {
 export const getMenu = async (id) => (await api.get(`/menus/${id}`)).data.data;
 
 /** แปลงข้อมูลฟอร์มเป็น FormData (รองรับรูปภาพ) */
-function toFormData({ categoryId, name, description, price, status, imageFile, removeImage }) {
+function toFormData({ categoryId, name, nameEn, description, price, status, imageFile, removeImage }) {
   const fd = new FormData();
   fd.append('categoryId', categoryId);
   fd.append('name', name);
+  fd.append('nameEn', nameEn || '');
   fd.append('description', description || '');
   fd.append('price', price);
   fd.append('status', status);

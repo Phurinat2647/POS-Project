@@ -10,20 +10,20 @@ async function getCatalog() {
     'SELECT id, name, sort_order FROM categories WHERE is_active = 1 ORDER BY sort_order, id'
   );
   const [menus] = await pool.query(
-    `SELECT m.id, m.category_id, m.name, m.description, m.price, m.image_url, m.status, m.auto_sold_out
+    `SELECT m.id, m.category_id, m.name, m.name_en, m.description, m.price, m.image_url, m.status, m.auto_sold_out
        FROM menus m JOIN categories c ON c.id = m.category_id
       WHERE m.is_active = 1 AND c.is_active = 1
       ORDER BY c.sort_order, c.id, m.name`
   );
   const [options] = await pool.query(
-    `SELECT o.id, o.menu_id, o.category_id, o.option_type, o.name, o.extra_price, o.is_default
+    `SELECT o.id, o.menu_id, o.category_id, o.option_type, o.name, o.name_en, o.extra_price, o.is_default
        FROM menu_options o
        LEFT JOIN menus m ON m.id = o.menu_id
       WHERE o.is_active = 1 AND (o.menu_id IS NULL OR m.is_active = 1)
       ORDER BY o.option_type, o.sort_order, o.id`
   );
 
-  const toOption = (o) => ({ id: o.id, name: o.name, extraPrice: o.extra_price, isDefault: !!o.is_default });
+  const toOption = (o) => ({ id: o.id, name: o.name, nameEn: o.name_en, extraPrice: o.extra_price, isDefault: !!o.is_default });
 
   return {
     categories: categories.map((c) => ({ id: c.id, name: c.name })),
@@ -35,6 +35,7 @@ async function getCatalog() {
         id: m.id,
         categoryId: m.category_id,
         name: m.name,
+        nameEn: m.name_en,
         description: m.description,
         price: m.price,
         imageUrl: m.image_url,

@@ -14,6 +14,7 @@ import { formatCurrency, formatNumber } from '../utils/format';
 import { toBaht } from '../utils/money';
 import { clearPosCart, loadPosCart, savePosCart } from '../utils/posCart';
 import { loadAutoKitchenTicket, printKitchenTicket, saveAutoKitchenTicket } from '../utils/kitchenTicket';
+import { localName, t } from '../i18n';
 
 const EMPTY_FORM = { orderType: 'dine_in', tableNo: '', note: '' };
 
@@ -24,10 +25,10 @@ const escapeHtml = (s) =>
 function stockWarningHtml(warnings = []) {
   if (!warnings.length) return '';
   const items = warnings
-    .map((w) => `<li>${escapeHtml(w.name)} — เหลือ <b>${formatNumber(w.quantity)}</b> ${escapeHtml(w.unit)}${w.quantity <= 0 ? ' (หมด)' : ''}</li>`)
+    .map((w) => `<li>${escapeHtml(w.name)} — ${t('เหลือ')} <b>${formatNumber(w.quantity)}</b> ${escapeHtml(w.unit)}${w.quantity <= 0 ? ` (${t('หมด#stock')})` : ''}</li>`)
     .join('');
   return `<div style="margin-top:12px;padding:8px 12px;border-radius:12px;background:#fffbeb;color:#92400e;text-align:left;font-size:14px">
-    ⚠️ วัตถุดิบใกล้หมด<ul style="margin:4px 0 0 18px;list-style:disc">${items}</ul></div>`;
+    ⚠️ ${t('วัตถุดิบใกล้หมด')}<ul style="margin:4px 0 0 18px;list-style:disc">${items}</ul></div>`;
 }
 
 const sameLine = (a, b) =>
@@ -106,7 +107,7 @@ export default function PosPage() {
     if (!catalog) return [];
     const q = search.trim().toLowerCase();
     return catalog.menus.filter(
-      (m) => (categoryId === 'all' || m.categoryId === categoryId) && (!q || m.name.toLowerCase().includes(q))
+      (m) => (categoryId === 'all' || m.categoryId === categoryId) && (!q || m.name.toLowerCase().includes(q) || (m.nameEn || '').toLowerCase().includes(q))
     );
   }, [catalog, categoryId, search]);
 
@@ -146,11 +147,11 @@ export default function PosPage() {
 
   const clearCart = async () => {
     const { isConfirmed } = await Swal.fire({
-      title: 'ล้างตะกร้า?',
+      title: t('ล้างตะกร้า?'),
       icon: 'question',
       showCancelButton: true,
-      confirmButtonText: 'ล้าง',
-      cancelButtonText: 'ยกเลิก',
+      confirmButtonText: t('ล้าง'),
+      cancelButtonText: t('ยกเลิก'),
       confirmButtonColor: '#dc2626',
       reverseButtons: true,
     });
@@ -181,16 +182,16 @@ export default function PosPage() {
       setCartOpen(false);
       const { isConfirmed } = await Swal.fire({
         icon: 'success',
-        title: `ออเดอร์ ${order.orderNo}`,
-        html: `ส่งเข้าครัวแล้ว<br/>ยอดรวม <b>${formatCurrency(order.total)}</b>${stockWarningHtml(order.stockWarnings)}`,
+        title: t('ออเดอร์ {0}', [order.orderNo]),
+        html: `${t('ส่งเข้าครัวแล้ว')}<br/>${t('ยอดรวม')} <b>${formatCurrency(order.total)}</b>${stockWarningHtml(order.stockWarnings)}`,
         showCancelButton: true,
-        confirmButtonText: 'ชำระเงินเลย',
-        cancelButtonText: 'ชำระภายหลัง',
+        confirmButtonText: t('ชำระเงินเลย'),
+        cancelButtonText: t('ชำระภายหลัง'),
         confirmButtonColor: '#166534',
       });
       if (isConfirmed) setPaying(order);
     } catch (err) {
-      showError(err.userMessage, 'ส่งออเดอร์ไม่สำเร็จ');
+      showError(err.userMessage, t('ส่งออเดอร์ไม่สำเร็จ'));
       load({ silent: true }); // ราคา/สถานะเมนูอาจเปลี่ยน
     } finally {
       setSubmitting(false);
@@ -232,13 +233,13 @@ export default function PosPage() {
             <Search size={18} className="absolute top-1/2 left-3 -translate-y-1/2 text-slate-400" />
             <input
               className="input pl-10"
-              placeholder="ค้นหาเมนู..."
+              placeholder={t('ค้นหาเมนู...')}
               value={search}
               onChange={(e) => setSearch(e.target.value)}
             />
           </div>
           <div className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-1">
-            {[{ id: 'all', name: 'ทั้งหมด' }, ...catalog.categories].map((c) => (
+            {[{ id: 'all', name: t('ทั้งหมด') }, ...catalog.categories].map((c) => (
               <button
                 key={c.id}
                 type="button"
@@ -255,7 +256,7 @@ export default function PosPage() {
 
         {visibleMenus.length === 0 ? (
           <div className="card">
-            <EmptyState text="ไม่พบเมนู" />
+            <EmptyState text={t('ไม่พบเมนู')} />
           </div>
         ) : (
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-4">
@@ -272,7 +273,7 @@ export default function PosPage() {
                 >
                   <div className="relative aspect-[4/3] bg-slate-100">
                     {m.imageUrl ? (
-                      <img src={m.imageUrl} alt={m.name} className={`h-full w-full object-cover ${soldOut ? 'grayscale' : ''}`} loading="lazy" />
+                      <img src={m.imageUrl} alt={localName(m)} className={`h-full w-full object-cover ${soldOut ? 'grayscale' : ''}`} loading="lazy" />
                     ) : (
                       <div className="flex h-full items-center justify-center text-slate-300">
                         <ImageOff size={28} />
@@ -281,8 +282,8 @@ export default function PosPage() {
                     {soldOut && (
                       <div className="absolute inset-0 flex items-center justify-center bg-white/60">
                         <span className="badge flex-col gap-0 bg-red-600 px-3 py-1 text-sm text-white">
-                          หมด
-                          {m.autoSoldOut && <span className="text-[11px] font-normal">วัตถุดิบไม่พอ</span>}
+                          {t('หมด')}
+                          {m.autoSoldOut && <span className="text-[11px] font-normal">{t('วัตถุดิบไม่พอ')}</span>}
                         </span>
                       </div>
                     )}
@@ -293,7 +294,7 @@ export default function PosPage() {
                     )}
                   </div>
                   <div className="p-3">
-                    <div className={`line-clamp-2 text-sm font-medium ${soldOut ? 'text-slate-400' : ''}`}>{m.name}</div>
+                    <div className={`line-clamp-2 text-sm font-medium ${soldOut ? 'text-slate-400' : ''}`}>{localName(m)}</div>
                     <div className="mt-1 font-semibold text-primary-800">{formatCurrency(m.price)}</div>
                   </div>
                 </button>
@@ -313,7 +314,7 @@ export default function PosPage() {
         className="fixed inset-x-4 bottom-4 z-20 flex items-center justify-between rounded-2xl bg-primary-800 px-5 py-3.5 text-white shadow-lg lg:hidden"
       >
         <span className="flex items-center gap-2 font-medium">
-          <ShoppingCart size={20} /> ตะกร้า ({itemCount})
+          <ShoppingCart size={20} /> {t('ตะกร้า (')}{itemCount})
         </span>
         <span className="text-lg font-semibold tabular-nums">{formatCurrency(toBaht(totalSatang))}</span>
       </button>

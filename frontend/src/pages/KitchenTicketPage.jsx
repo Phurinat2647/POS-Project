@@ -6,6 +6,7 @@ import { optionText } from '../components/OrderItems';
 import { getOrder } from '../services/order.service';
 import { formatDateTime } from '../utils/format';
 import { ORDER_TYPE } from '../utils/labels';
+import { localName, t } from '../i18n';
 
 /**
  * ใบสั่งครัว — กระดาษ 80x80 มม. (ไม่มีราคา) เน้นชื่อเมนู ตัวเลือก หมายเหตุ ให้อ่านง่ายหน้าเตา
@@ -37,7 +38,7 @@ export default function KitchenTicketPage() {
   if (error) return <ErrorState message={error} />;
   if (!order) return <LoadingState />;
 
-  const place = order.orderType === 'dine_in' && order.tableNo ? `โต๊ะ ${order.tableNo}` : ORDER_TYPE[order.orderType];
+  const place = order.orderType === 'dine_in' && order.tableNo ? t('โต๊ะ {0}', [order.tableNo]) : ORDER_TYPE[order.orderType];
   const count = order.items.reduce((s, i) => s + i.quantity, 0);
 
   return (
@@ -47,10 +48,10 @@ export default function KitchenTicketPage() {
       {!embedded && (
         <div className="mx-auto mb-4 flex justify-center gap-2 print:hidden">
           <button className="btn-primary" onClick={() => window.print()}>
-            <Printer size={16} /> พิมพ์ใบสั่งครัว
+            <Printer size={16} /> {t('พิมพ์ใบสั่งครัว')}
           </button>
           <button className="btn-outline" onClick={() => window.close()}>
-            <X size={16} /> ปิด
+            <X size={16} /> {t('ปิด')}
           </button>
         </div>
       )}
@@ -58,7 +59,7 @@ export default function KitchenTicketPage() {
       <article className="mx-auto box-border min-h-[80mm] w-[80mm] bg-white p-[3mm] text-[12px] leading-snug text-black shadow print:min-h-0 print:w-auto print:p-0 print:shadow-none">
         <header className="flex items-start justify-between gap-2">
           <div>
-            <p className="text-[11px] font-semibold">ใบสั่งครัว</p>
+            <p className="text-[11px] font-semibold">{t('ใบสั่งครัว')}</p>
             <p className="text-[24px] leading-none font-bold">#{order.orderNo.split('-')[1]}</p>
           </div>
           <p className="pt-2.5 text-right text-[17px] leading-tight font-bold">{place}</p>
@@ -67,14 +68,14 @@ export default function KitchenTicketPage() {
           <span>{order.orderNo}</span>
           <span>{formatDateTime(order.createdAt)}</span>
         </div>
-        {order.cashierName && <p className="text-[10px]">พนักงาน: {order.cashierName}</p>}
+        {order.cashierName && <p className="text-[10px]">{t('พนักงาน:')} {order.cashierName}</p>}
         <hr className="my-1 border-t-2 border-dashed border-black" />
 
         <ul className="space-y-1">
           {order.items.map((i) => (
             <li key={i.id} className="break-inside-avoid">
               <p className="text-[15px] leading-tight font-bold">
-                {i.quantity} × {i.menuName}
+                {i.quantity} × {localName(i, 'menuName')}
               </p>
               {i.options.length > 0 && <p className="pl-5 text-[12px] leading-tight">+ {optionText(i.options)}</p>}
               {i.note && <p className="pl-5 text-[13px] leading-tight font-bold">* {i.note}</p>}
@@ -83,10 +84,10 @@ export default function KitchenTicketPage() {
         </ul>
 
         {order.note && (
-          <p className="mt-2 break-inside-avoid border-2 border-black px-1.5 py-1 text-[13px] font-semibold">หมายเหตุ: {order.note}</p>
+          <p className="mt-2 break-inside-avoid border-2 border-black px-1.5 py-1 text-[13px] font-semibold">{t('หมายเหตุ:')} {order.note}</p>
         )}
         <hr className="my-1 border-t-2 border-dashed border-black" />
-        <p className="text-center text-[11px]">รวม {count} รายการ</p>
+        <p className="text-center text-[11px]">{t('รวม')} {count} {t('รายการ')}</p>
       </article>
     </div>
   );

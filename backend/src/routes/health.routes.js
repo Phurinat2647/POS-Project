@@ -5,7 +5,7 @@ const asyncHandler = require('../utils/asyncHandler');
 const EXPECTED_TABLES = [
   'roles', 'users', 'categories', 'menus', 'menu_options', 'order_sequences',
   'orders', 'order_items', 'order_item_options', 'payments', 'ingredients',
-  'menu_ingredients', 'inventory_transactions', 'settings',
+  'menu_ingredients', 'option_ingredients', 'inventory_transactions', 'settings',
 ];
 
 /**

@@ -3,7 +3,9 @@ import { Minus, Plus } from 'lucide-react';
 import Modal from '../Modal';
 import { formatCurrency } from '../../utils/format';
 import { toBaht, toSatang } from '../../utils/money';
+import { localName, t } from '../../i18n';
 
+// ข้อความที่ใส่ในหมายเหตุเป็นภาษาไทยเสมอ (ครัวอ่าน) — ปุ่มแสดงตามภาษาที่เลือก
 const QUICK_NOTES = ['ไม่เผ็ด', 'เผ็ดน้อย', 'เผ็ดมาก', 'ไม่ใส่ผัก', 'ไม่ใส่ผงชูรส', 'แยกข้าว'];
 export const MAX_QTY = 99;
 
@@ -14,14 +16,15 @@ export const lineUnitSatang = (line) =>
 /** ตัวเลือกที่เลือกเรียงแบบคงที่ (ใช้เทียบว่ารายการเหมือนกันหรือไม่) */
 export function buildLine(menu, { sizeId, toppingIds, quantity, note }) {
   const size = menu.sizes.find((s) => s.id === sizeId);
-  const toppings = menu.toppings.filter((t) => toppingIds.includes(t.id));
+  const toppings = menu.toppings.filter((tx) => toppingIds.includes(tx.id));
   const options = [...(size ? [size] : []), ...toppings];
   return {
     menuId: menu.id,
     name: menu.name,
+    nameEn: menu.nameEn ?? null,
     basePrice: menu.price,
     sizeId: size?.id ?? null,
-    toppingIds: toppings.map((t) => t.id),
+    toppingIds: toppings.map((tx) => tx.id),
     options,
     quantity,
     note: note.trim(),
@@ -60,28 +63,28 @@ export default function MenuItemModal({ menu, initial, onClose, onSubmit }) {
   return (
     <Modal
       open
-      title={menu.name}
+      title={localName(menu)}
       onClose={onClose}
       footer={
         <>
           <button type="button" className="btn-outline" onClick={onClose}>
-            ยกเลิก
+            {t('ยกเลิก')}
           </button>
           <button type="submit" form="menu-item-form" className="btn-primary">
-            {initial ? 'บันทึก' : 'เพิ่มลงตะกร้า'} · {formatCurrency(lineTotal)}
+            {initial ? t('บันทึก') : t('เพิ่มลงตะกร้า')} · {formatCurrency(lineTotal)}
           </button>
         </>
       }
     >
       <form id="menu-item-form" onSubmit={submit} className="space-y-5">
         <div className="text-sm text-slate-500">
-          ราคาเริ่มต้น <span className="font-medium text-slate-800">{formatCurrency(menu.price)}</span>
+          {t('ราคาเริ่มต้น')} <span className="font-medium text-slate-800">{formatCurrency(menu.price)}</span>
           {menu.description && <p className="mt-1">{menu.description}</p>}
         </div>
 
         {menu.sizes.length > 0 && (
           <fieldset>
-            <legend className="label">ขนาด <span className="font-normal text-slate-400">(เลือก 1 อย่าง)</span></legend>
+            <legend className="label">{t('ขนาด')} <span className="font-normal text-slate-400">{t('(เลือก 1 อย่าง)')}</span></legend>
             <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
               {menu.sizes.map((s) => (
                 <label
@@ -92,7 +95,7 @@ export default function MenuItemModal({ menu, initial, onClose, onSubmit }) {
                 >
                   <span className="flex items-center gap-2">
                     <input type="radio" name="size" className="accent-primary-800" checked={sizeId === s.id} onChange={() => setSizeId(s.id)} />
-                    {s.name}
+                    {localName(s)}
                   </span>
                   {s.extraPrice > 0 && <span className="text-xs text-slate-500">+{s.extraPrice}</span>}
                 </label>
@@ -103,22 +106,22 @@ export default function MenuItemModal({ menu, initial, onClose, onSubmit }) {
 
         {menu.toppings.length > 0 && (
           <fieldset>
-            <legend className="label">ท็อปปิ้ง <span className="font-normal text-slate-400">(เลือกได้หลายอย่าง)</span></legend>
+            <legend className="label">{t('ท็อปปิ้ง')} <span className="font-normal text-slate-400">{t('(เลือกได้หลายอย่าง)')}</span></legend>
             <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
-              {menu.toppings.map((t) => {
-                const checked = toppingIds.includes(t.id);
+              {menu.toppings.map((tx) => {
+                const checked = toppingIds.includes(tx.id);
                 return (
                   <label
-                    key={t.id}
+                    key={tx.id}
                     className={`flex cursor-pointer items-center justify-between gap-2 rounded-xl border px-3 py-2 text-sm transition ${
                       checked ? 'border-primary-700 bg-primary-50 font-medium' : 'border-slate-300 hover:bg-slate-50'
                     }`}
                   >
                     <span className="flex items-center gap-2">
-                      <input type="checkbox" className="accent-primary-800" checked={checked} onChange={() => toggleTopping(t.id)} />
-                      {t.name}
+                      <input type="checkbox" className="accent-primary-800" checked={checked} onChange={() => toggleTopping(tx.id)} />
+                      {localName(tx)}
                     </span>
-                    {t.extraPrice > 0 && <span className="text-xs text-slate-500">+{t.extraPrice}</span>}
+                    {tx.extraPrice > 0 && <span className="text-xs text-slate-500">+{tx.extraPrice}</span>}
                   </label>
                 );
               })}
@@ -127,14 +130,14 @@ export default function MenuItemModal({ menu, initial, onClose, onSubmit }) {
         )}
 
         <div>
-          <label className="label" htmlFor="item-note">หมายเหตุ</label>
+          <label className="label" htmlFor="item-note">{t('หมายเหตุ')}</label>
           <input
             id="item-note"
             className="input"
             value={note}
             maxLength={255}
             onChange={(e) => setNote(e.target.value)}
-            placeholder="เช่น ไม่เผ็ด ไม่ใส่ผัก"
+            placeholder={t('เช่น ไม่เผ็ด ไม่ใส่ผัก')}
           />
           <div className="mt-2 flex flex-wrap gap-1.5">
             {QUICK_NOTES.map((q) => (
@@ -144,14 +147,14 @@ export default function MenuItemModal({ menu, initial, onClose, onSubmit }) {
                 className="rounded-full border border-slate-300 px-2.5 py-0.5 text-xs text-slate-600 hover:bg-slate-100"
                 onClick={() => addQuickNote(q)}
               >
-                + {q}
+                + {t(q)}
               </button>
             ))}
           </div>
         </div>
 
         <div className="flex items-center justify-between">
-          <span className="label mb-0">จำนวน</span>
+          <span className="label mb-0">{t('จำนวน')}</span>
           <QuantityStepper value={quantity} onChange={setQuantity} />
         </div>
       </form>
@@ -168,7 +171,7 @@ export function QuantityStepper({ value, onChange, min = 1, small = false }) {
         className={`${cls} inline-flex items-center justify-center rounded-lg border border-slate-300 hover:bg-slate-50 disabled:opacity-40`}
         onClick={() => onChange(value - 1)}
         disabled={value <= min}
-        aria-label="ลดจำนวน"
+        aria-label={t('ลดจำนวน')}
       >
         <Minus size={small ? 14 : 16} />
       </button>
@@ -178,7 +181,7 @@ export function QuantityStepper({ value, onChange, min = 1, small = false }) {
         className={`${cls} inline-flex items-center justify-center rounded-lg border border-slate-300 hover:bg-slate-50 disabled:opacity-40`}
         onClick={() => onChange(value + 1)}
         disabled={value >= MAX_QTY}
-        aria-label="เพิ่มจำนวน"
+        aria-label={t('เพิ่มจำนวน')}
       >
         <Plus size={small ? 14 : 16} />
       </button>

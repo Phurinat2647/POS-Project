@@ -65,6 +65,7 @@ const toItem = (r) => ({
   id: r.id,
   menuId: r.menu_id,
   menuName: r.menu_name,
+  menuNameEn: r.menu_name_en ?? null,
   categoryName: r.category_name,
   unitPrice: r.unit_price,
   optionsPrice: r.options_price,
@@ -105,6 +106,7 @@ async function attachItems(orders, conn = pool) {
         menuOptionId: o.menu_option_id,
         optionType: o.option_type,
         name: o.option_name,
+        nameEn: o.option_name_en ?? null,
         extraPrice: o.extra_price,
       });
     }
@@ -198,7 +200,7 @@ const optionAppliesTo = (opt, menu) =>
 async function priceItems(conn, items) {
   const menuIds = [...new Set(items.map((i) => i.menuId))];
   const [menuRows] = await conn.query(
-    `SELECT m.id, m.name, m.price, m.status, m.is_active, m.category_id,
+    `SELECT m.id, m.name, m.name_en, m.price, m.status, m.is_active, m.category_id,
             c.name AS category_name, c.is_active AS category_active
        FROM menus m JOIN categories c ON c.id = m.category_id
       WHERE m.id IN (?)`,
@@ -208,7 +210,7 @@ async function priceItems(conn, items) {
   const categoryIds = [...new Set(menuRows.map((m) => m.category_id))];
 
   const [optionRows] = await conn.query(
-    `SELECT id, menu_id, category_id, option_type, name, extra_price, is_default
+    `SELECT id, menu_id, category_id, option_type, name, name_en, extra_price, is_default
        FROM menu_options
       WHERE is_active = 1
         AND (menu_id IN (?) OR category_id IN (?) OR (menu_id IS NULL AND category_id IS NULL))
@@ -300,12 +302,13 @@ async function create(data, cashierId) {
     for (const l of lines) {
       const [ir] = await conn.query(
         `INSERT INTO order_items
-           (order_id, menu_id, menu_name, category_name, unit_price, options_price, quantity, line_total, note)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+           (order_id, menu_id, menu_name, menu_name_en, category_name, unit_price, options_price, quantity, line_total, note)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [
           orderId,
           l.menu.id,
           l.menu.name,
+          l.menu.name_en,
           l.menu.category_name,
           toBaht(l.unitSatang),
           toBaht(l.optionsSatang),
@@ -316,8 +319,8 @@ async function create(data, cashierId) {
       );
       if (l.options.length) {
         await conn.query(
-          'INSERT INTO order_item_options (order_item_id, menu_option_id, option_type, option_name, extra_price) VALUES ?',
-          [l.options.map((o) => [ir.insertId, o.id, o.option_type, o.name, o.extra_price])]
+          'INSERT INTO order_item_options (order_item_id, menu_option_id, option_type, option_name, option_name_en, extra_price) VALUES ?',
+          [l.options.map((o) => [ir.insertId, o.id, o.option_type, o.name, o.name_en, o.extra_price])]
         );
       }
     }
@@ -327,7 +330,12 @@ async function create(data, cashierId) {
     const stockWarnings = await inventoryService.deductForOrder(conn, {
       orderId,
       orderNo,
-      lines: lines.map((l) => ({ menuId: l.menu.id, quantity: l.quantity })),
+      lines: lines.map((l) => ({
+        menuId: l.menu.id,
+        menuName: l.menu.name,
+        quantity: l.quantity,
+        optionIds: l.options.map((o) => o.id), // รวมขนาดค่าเริ่มต้นที่ระบบเลือกให้
+      })),
       userId: cashierId,
     });
 

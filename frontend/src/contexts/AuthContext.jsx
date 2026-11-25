@@ -2,6 +2,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState } 
 import { UNAUTHORIZED_EVENT, getToken, setToken } from '../services/api';
 import * as authService from '../services/auth.service';
 import { clearPosCart } from '../utils/posCart';
+import { t, tApi } from '../i18n';
 
 const AuthContext = createContext(null);
 
@@ -43,7 +44,7 @@ export function AuthProvider({ children }) {
       clearPosCart();
       setUser(null);
       setStatus('guest');
-      setSessionMessage(e.detail?.message || 'เซสชันหมดอายุ กรุณาเข้าสู่ระบบใหม่');
+      setSessionMessage(tApi(e.detail?.message) || t('เซสชันหมดอายุ กรุณาเข้าสู่ระบบใหม่'));
     };
     window.addEventListener(UNAUTHORIZED_EVENT, onUnauthorized);
     return () => window.removeEventListener(UNAUTHORIZED_EVENT, onUnauthorized);
@@ -78,6 +79,6 @@ export function AuthProvider({ children }) {
 
 export function useAuth() {
   const ctx = useContext(AuthContext);
-  if (!ctx) throw new Error('useAuth ต้องใช้ภายใน <AuthProvider>');
+  if (!ctx) throw new Error(t('useAuth ต้องใช้ภายใน <AuthProvider>'));
   return ctx;
 }

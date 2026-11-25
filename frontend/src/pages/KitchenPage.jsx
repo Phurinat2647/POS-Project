@@ -9,6 +9,7 @@ import { getKitchenQueue, updateOrderStatus } from '../services/order.service';
 import { showError, toastSuccess } from '../utils/alert';
 import { formatTime } from '../utils/format';
 import { ORDER_NEXT_STEP, ORDER_TYPE } from '../utils/labels';
+import { localName, t } from '../i18n';
 
 const SOUND_KEY = 'food_pos_kitchen_sound';
 const RECENT_LIMIT = 12;
@@ -58,8 +59,8 @@ function useBeep() {
 function useNow(intervalMs = 30000) {
   const [now, setNow] = useState(() => Date.now());
   useEffect(() => {
-    const t = setInterval(() => setNow(Date.now()), intervalMs);
-    return () => clearInterval(t);
+    const tx = setInterval(() => setNow(Date.now()), intervalMs);
+    return () => clearInterval(tx);
   }, [intervalMs]);
   return now;
 }
@@ -147,39 +148,39 @@ export default function KitchenPage() {
   return (
     <div className="mx-auto max-w-[1600px]">
       <PageHeader
-        title="ครัว"
-        description="ออเดอร์อัปเดตอัตโนมัติแบบ Real-time — เรียงจากออเดอร์ที่รอนานที่สุด"
+        title={t('ครัว')}
+        description={t('ออเดอร์อัปเดตอัตโนมัติแบบ Real-time — เรียงจากออเดอร์ที่รอนานที่สุด')}
         actions={
           <>
-            <button className="btn-outline" onClick={toggleSound} title="เสียงแจ้งเตือนออเดอร์ใหม่">
-              {sound ? <Volume2 size={16} /> : <VolumeX size={16} />} {sound ? 'เปิดเสียง' : 'ปิดเสียง'}
+            <button className="btn-outline" onClick={toggleSound} title={t('เสียงแจ้งเตือนออเดอร์ใหม่')}>
+              {sound ? <Volume2 size={16} /> : <VolumeX size={16} />} {sound ? t('เปิดเสียง') : t('ปิดเสียง')}
             </button>
             <button className="btn-outline" onClick={() => load()}>
-              <RefreshCw size={16} /> รีเฟรช
+              <RefreshCw size={16} /> {t('รีเฟรช')}
             </button>
           </>
         }
       />
 
       <div className="grid gap-4 lg:grid-cols-2 2xl:grid-cols-[1fr_1fr_320px]">
-        <Column title="รอทำ" count={pending.length} tone="bg-amber-500">
+        <Column title={t('รอทำ')} count={pending.length} tone="bg-amber-500">
           {pending.map((o) => (
             <KitchenCard key={o.id} order={o} now={now} busy={busyId === o.id} isNew={highlight.has(o.id)} onAdvance={advance} />
           ))}
         </Column>
-        <Column title="กำลังทำ" count={preparing.length} tone="bg-blue-600">
+        <Column title={t('กำลังทำ')} count={preparing.length} tone="bg-blue-600">
           {preparing.map((o) => (
             <KitchenCard key={o.id} order={o} now={now} busy={busyId === o.id} onAdvance={advance} />
           ))}
         </Column>
-        <Column title="เสร็จล่าสุด (วันนี้)" count={queue.recentCompleted.length} tone="bg-green-600" className="lg:col-span-2 2xl:col-span-1">
+        <Column title={t('เสร็จล่าสุด (วันนี้)')} count={queue.recentCompleted.length} tone="bg-green-600" className="lg:col-span-2 2xl:col-span-1">
           <div className="grid gap-2 sm:grid-cols-2 2xl:grid-cols-1">
             {queue.recentCompleted.map((o) => (
               <div key={o.id} className="card flex items-center justify-between gap-3 px-4 py-2.5 text-sm">
                 <div className="min-w-0">
                   <div className="font-semibold">#{o.orderNo.split('-')[1]} <OrderPlace order={o} /></div>
                   <div className="truncate text-xs text-slate-500">
-                    {o.items.map((i) => `${i.quantity}× ${i.menuName}`).join(', ')}
+                    {o.items.map((i) => `${i.quantity}× ${localName(i, 'menuName')}`).join(', ')}
                   </div>
                 </div>
                 <span className="shrink-0 text-xs text-slate-500">{formatTime(o.completedAt)}</span>
@@ -200,7 +201,7 @@ function Column({ title, count, tone, children, className = '' }) {
         <span className={`h-2.5 w-2.5 rounded-full ${tone}`} /> {title}
         <span className="badge bg-white text-slate-700">{count}</span>
       </h2>
-      {empty ? <p className="py-10 text-center text-sm text-slate-400">ไม่มีออเดอร์</p> : <div className="space-y-3">{children}</div>}
+      {empty ? <p className="py-10 text-center text-sm text-slate-400">{t('ไม่มีออเดอร์')}</p> : <div className="space-y-3">{children}</div>}
     </section>
   );
 }
@@ -210,7 +211,7 @@ function OrderPlace({ order }) {
   return (
     <span className="ml-1 inline-flex items-center gap-1 text-sm font-normal text-slate-600">
       <Icon size={14} />
-      {order.orderType === 'dine_in' && order.tableNo ? `โต๊ะ ${order.tableNo}` : ORDER_TYPE[order.orderType]}
+      {order.orderType === 'dine_in' && order.tableNo ? t('โต๊ะ {0}', [order.tableNo]) : ORDER_TYPE[order.orderType]}
     </span>
   );
 }
@@ -229,19 +230,19 @@ function KitchenCard({ order, now, busy, isNew = false, onAdvance }) {
             <OrderPlace order={order} />
           </div>
           <div className="text-xs text-slate-500">
-            {order.orderNo} · สั่งเมื่อ {formatTime(order.createdAt)}
+            {order.orderNo} {t('· สั่งเมื่อ')} {formatTime(order.createdAt)}
           </div>
         </div>
         <div className="flex shrink-0 items-center gap-1">
           <span className={`badge ${waitTone}`}>
-            <Clock size={12} /> {waitedMin} นาที
+            <Clock size={12} /> {waitedMin} {t('นาที')}
           </span>
           <button
             type="button"
             className="btn-icon h-8 w-8"
             onClick={() => printKitchenTicket(order.id)}
-            title="พิมพ์ใบสั่งครัว"
-            aria-label="พิมพ์ใบสั่งครัว"
+            title={t('พิมพ์ใบสั่งครัว')}
+            aria-label={t('พิมพ์ใบสั่งครัว')}
           >
             <Printer size={16} />
           </button>
@@ -250,7 +251,7 @@ function KitchenCard({ order, now, busy, isNew = false, onAdvance }) {
       <div className="px-4 py-2">
         <OrderItems items={order.items} size="lg" />
         {order.note && (
-          <p className="mt-2 rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-900">หมายเหตุ: {order.note}</p>
+          <p className="mt-2 rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-900">{t('หมายเหตุ:')} {order.note}</p>
         )}
       </div>
       {step && (

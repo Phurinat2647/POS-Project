@@ -86,7 +86,7 @@ async function getSalesReport({ from, to }) {
   });
 
   const [menuRows] = await pool.query(
-    `SELECT oi.menu_name AS name, oi.category_name AS category, SUM(oi.quantity) AS quantity, SUM(oi.line_total) AS sales
+    `SELECT oi.menu_name AS name, MAX(oi.menu_name_en) AS name_en, oi.category_name AS category, SUM(oi.quantity) AS quantity, SUM(oi.line_total) AS sales
        FROM order_items oi JOIN orders o ON o.id = oi.order_id WHERE ${PAID_IN_RANGE}
       GROUP BY oi.menu_name, oi.category_name
       ORDER BY quantity DESC, sales DESC`,
@@ -128,7 +128,7 @@ async function getSalesReport({ from, to }) {
     daily,
     byHour,
     byMethod,
-    topMenus: menuRows.map((r) => ({ name: r.name, category: r.category, quantity: Number(r.quantity), sales: baht(r.sales) })),
+    topMenus: menuRows.map((r) => ({ name: r.name, nameEn: r.name_en ?? null, category: r.category, quantity: Number(r.quantity), sales: baht(r.sales) })),
     byCategory: categoryRows.map((r) => ({ name: r.name, quantity: Number(r.quantity), sales: baht(r.sales) })),
     orders: orderRows.map((r) => ({
       orderNo: r.order_no,

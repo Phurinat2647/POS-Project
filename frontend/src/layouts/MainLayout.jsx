@@ -25,6 +25,8 @@ import Swal from 'sweetalert2';
 import { useAuth } from '../contexts/AuthContext';
 import { SocketProvider, useSocketStatus } from '../contexts/SocketContext';
 import { ROLES } from '../utils/roles';
+import { t, tApi } from '../i18n';
+import LanguageSwitcher from '../components/LanguageSwitcher';
 
 /**
  * เมนูใน Sidebar — roles ว่าง = ทุก role
@@ -32,29 +34,29 @@ import { ROLES } from '../utils/roles';
  */
 const NAV_ITEMS = [
   { to: '/', label: 'Dashboard', icon: LayoutDashboard, end: true, roles: [ROLES.ADMIN, ROLES.CASHIER] },
-  { to: '/pos', label: 'ขายหน้าร้าน (POS)', icon: ShoppingCart, roles: [ROLES.ADMIN, ROLES.CASHIER] },
-  { to: '/orders', label: 'ออเดอร์', icon: ClipboardList, roles: [ROLES.ADMIN, ROLES.CASHIER] },
-  { to: '/kitchen', label: 'ครัว', icon: ChefHat },
-  { to: '/inventory', label: 'คลังวัตถุดิบ', icon: Package, roles: [ROLES.ADMIN, ROLES.KITCHEN] },
-  { to: '/reports', label: 'รายงานยอดขาย', icon: ChartColumn, roles: [ROLES.ADMIN] },
-  { to: '/menus', label: 'เมนูอาหาร', icon: Soup },
-  { to: '/categories', label: 'หมวดหมู่', icon: FolderTree, roles: [ROLES.ADMIN] },
-  { to: '/menu-options', label: 'ตัวเลือกเมนู', icon: ListPlus, roles: [ROLES.ADMIN] },
-  { to: '/users', label: 'ผู้ใช้งาน', icon: Users, roles: [ROLES.ADMIN] },
-  { to: '/settings', label: 'ตั้งค่าร้าน', icon: Store, roles: [ROLES.ADMIN] },
-  { to: '/system-status', label: 'สถานะระบบ', icon: Activity, roles: [ROLES.ADMIN] },
+  { to: '/pos', label: t('ขายหน้าร้าน (POS)'), icon: ShoppingCart, roles: [ROLES.ADMIN, ROLES.CASHIER] },
+  { to: '/orders', label: t('ออเดอร์'), icon: ClipboardList, roles: [ROLES.ADMIN, ROLES.CASHIER] },
+  { to: '/kitchen', label: t('ครัว'), icon: ChefHat },
+  { to: '/inventory', label: t('คลังวัตถุดิบ'), icon: Package, roles: [ROLES.ADMIN, ROLES.KITCHEN] },
+  { to: '/reports', label: t('รายงานยอดขาย'), icon: ChartColumn, roles: [ROLES.ADMIN] },
+  { to: '/menus', label: t('เมนูอาหาร'), icon: Soup },
+  { to: '/categories', label: t('หมวดหมู่'), icon: FolderTree, roles: [ROLES.ADMIN] },
+  { to: '/menu-options', label: t('ตัวเลือกเมนู'), icon: ListPlus, roles: [ROLES.ADMIN] },
+  { to: '/users', label: t('ผู้ใช้งาน'), icon: Users, roles: [ROLES.ADMIN] },
+  { to: '/settings', label: t('ตั้งค่าร้าน'), icon: Store, roles: [ROLES.ADMIN] },
+  { to: '/system-status', label: t('สถานะระบบ'), icon: Activity, roles: [ROLES.ADMIN] },
 ];
 
 /** สถานะการเชื่อมต่อ Real-time บน Topbar */
 function ConnectionStatus() {
   const connected = useSocketStatus();
   return connected ? (
-    <span className="hidden items-center gap-1.5 text-xs text-green-700 sm:flex" title="เชื่อมต่อ Real-time แล้ว">
-      <Wifi size={15} /> ออนไลน์
+    <span className="hidden items-center gap-1.5 text-xs text-green-700 sm:flex" title={t('เชื่อมต่อ Real-time แล้ว')}>
+      <Wifi size={15} /> {t('ออนไลน์')}
     </span>
   ) : (
-    <span className="flex items-center gap-1.5 text-xs text-danger" title="ขาดการเชื่อมต่อ Real-time — ข้อมูลอาจไม่อัปเดตอัตโนมัติ">
-      <WifiOff size={15} /> <span className="hidden sm:inline">ขาดการเชื่อมต่อ</span>
+    <span className="flex items-center gap-1.5 text-xs text-danger" title={t('ขาดการเชื่อมต่อ Real-time — ข้อมูลอาจไม่อัปเดตอัตโนมัติ')}>
+      <WifiOff size={15} /> <span className="hidden sm:inline">{t('ขาดการเชื่อมต่อ')}</span>
     </span>
   );
 }
@@ -78,11 +80,11 @@ function LayoutShell() {
 
   const handleLogout = async () => {
     const { isConfirmed } = await Swal.fire({
-      title: 'ออกจากระบบ?',
+      title: t('ออกจากระบบ?'),
       icon: 'question',
       showCancelButton: true,
-      confirmButtonText: 'ออกจากระบบ',
-      cancelButtonText: 'ยกเลิก',
+      confirmButtonText: t('ออกจากระบบ'),
+      cancelButtonText: t('ยกเลิก'),
       confirmButtonColor: '#166534',
     });
     if (isConfirmed) logout();
@@ -103,7 +105,7 @@ function LayoutShell() {
           <div className="flex items-center gap-2 font-semibold">
             <UtensilsCrossed size={22} /> Food POS
           </div>
-          <button className="lg:hidden" onClick={() => setOpen(false)} aria-label="ปิดเมนู">
+          <button className="lg:hidden" onClick={() => setOpen(false)} aria-label={t('ปิดเมนู')}>
             <X size={20} />
           </button>
         </div>
@@ -128,24 +130,25 @@ function LayoutShell() {
             onClick={handleLogout}
             className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm text-white/80 hover:bg-white/10"
           >
-            <LogOut size={18} /> ออกจากระบบ
+            <LogOut size={18} /> {t('ออกจากระบบ')}
           </button>
         </div>
       </aside>
 
       <div className="flex min-w-0 flex-1 flex-col">
         <header className="sticky top-0 z-20 flex h-16 items-center justify-between gap-3 border-b border-slate-200 bg-white px-4 sm:px-6">
-          <button className="btn-outline px-2.5 lg:hidden" onClick={() => setOpen(true)} aria-label="เปิดเมนู">
+          <button className="btn-outline px-2.5 lg:hidden" onClick={() => setOpen(true)} aria-label={t('เปิดเมนู')}>
             <Menu size={20} />
           </button>
           <div className="flex-1" />
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 sm:gap-3">
             <ConnectionStatus />
-            <div className="text-right leading-tight">
+            <LanguageSwitcher />
+            <div className="hidden text-right leading-tight sm:block">
               <div className="text-sm font-medium">{user.fullName}</div>
-              <div className="text-xs text-slate-500">{user.roleDisplayName}</div>
+              <div className="text-xs text-slate-500">{tApi(user.roleDisplayName)}</div>
             </div>
-            <NavLink to="/change-password" className="btn-outline px-2.5" title="เปลี่ยนรหัสผ่าน">
+            <NavLink to="/change-password" className="btn-outline px-2.5" title={t('เปลี่ยนรหัสผ่าน')}>
               <KeyRound size={18} />
             </NavLink>
           </div>

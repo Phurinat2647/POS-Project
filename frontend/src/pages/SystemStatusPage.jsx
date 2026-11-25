@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { CheckCircle2, XCircle, Database, Server, RefreshCw, UtensilsCrossed } from 'lucide-react';
 import { getHealth } from '../services/health.service';
 import { formatDateTime } from '../utils/format';
+import { t } from '../i18n';
 
 /**
  * หน้าตรวจสอบสถานะระบบ (Phase 1)
@@ -20,7 +21,7 @@ export default function SystemStatusPage() {
       setHealth(await getHealth());
     } catch (err) {
       setHealth(null);
-      setError(err.userMessage || 'ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์ได้');
+      setError(err.userMessage || t('ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์ได้'));
     } finally {
       setLoading(false);
     }
@@ -41,13 +42,13 @@ export default function SystemStatusPage() {
           </div>
           <div>
             <h1 className="text-xl font-semibold">Food POS</h1>
-            <p className="text-sm text-slate-500">ตรวจสอบสถานะการเชื่อมต่อระบบ</p>
+            <p className="text-sm text-slate-500">{t('ตรวจสอบสถานะการเชื่อมต่อระบบ')}</p>
           </div>
         </div>
 
         {loading ? (
           <div className="flex items-center gap-3 py-8 text-slate-500">
-            <RefreshCw className="animate-spin" size={18} /> กำลังตรวจสอบ...
+            <RefreshCw className="animate-spin" size={18} /> {t('กำลังตรวจสอบ...')}
           </div>
         ) : (
           <ul className="space-y-3">
@@ -55,35 +56,35 @@ export default function SystemStatusPage() {
               icon={Server}
               label="Backend API"
               ok={!error}
-              detail={error ? error : 'เชื่อมต่อสำเร็จ'}
+              detail={error ? error : t('เชื่อมต่อสำเร็จ')}
             />
             <StatusRow
               icon={Database}
-              label="ฐานข้อมูล MySQL"
+              label={t('ฐานข้อมูล MySQL')}
               ok={!!db?.connected}
-              detail={db?.connected ? db.version : db?.error || 'ไม่ทราบสถานะ'}
+              detail={db?.connected ? db.version : db?.error || t('ไม่ทราบสถานะ')}
             />
             <StatusRow
               icon={Database}
-              label="โครงสร้างตาราง"
+              label={t('โครงสร้างตาราง')}
               ok={!!db?.schemaReady}
               detail={
                 db?.schemaReady
-                  ? 'ตารางครบถ้วน'
+                  ? t('ตารางครบถ้วน')
                   : db?.missingTables?.length
-                    ? `ขาดตาราง: ${db.missingTables.join(', ')}`
-                    : 'ยังตรวจสอบไม่ได้ - รัน npm run db:setup'
+                    ? t('ขาดตาราง: {0}', [db.missingTables.join(', ')])
+                    : t('ยังตรวจสอบไม่ได้ - รัน npm run db:setup')
               }
             />
           </ul>
         )}
 
         {db?.serverTime && (
-          <p className="mt-4 text-xs text-slate-500">เวลาเซิร์ฟเวอร์ฐานข้อมูล: {formatDateTime(db.serverTime)}</p>
+          <p className="mt-4 text-xs text-slate-500">{t('เวลาเซิร์ฟเวอร์ฐานข้อมูล:')} {formatDateTime(db.serverTime)}</p>
         )}
 
         <button className="btn-primary mt-6 w-full" onClick={load} disabled={loading}>
-          <RefreshCw size={16} /> ตรวจสอบอีกครั้ง
+          <RefreshCw size={16} /> {t('ตรวจสอบอีกครั้ง')}
         </button>
       </div>
     </div>
@@ -100,11 +101,11 @@ function StatusRow({ icon: Icon, label, ok, detail }) {
       </div>
       {ok ? (
         <span className="badge bg-primary-100 text-primary-800">
-          <CheckCircle2 size={14} /> ปกติ
+          <CheckCircle2 size={14} /> {t('ปกติ')}
         </span>
       ) : (
         <span className="badge bg-red-100 text-danger">
-          <XCircle size={14} /> ผิดปกติ
+          <XCircle size={14} /> {t('ผิดปกติ')}
         </span>
       )}
     </li>

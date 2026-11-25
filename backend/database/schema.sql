@@ -14,6 +14,7 @@ SET NAMES utf8mb4;
 SET FOREIGN_KEY_CHECKS = 0;
 
 DROP TABLE IF EXISTS `inventory_transactions`;
+DROP TABLE IF EXISTS `option_ingredients`;
 DROP TABLE IF EXISTS `menu_ingredients`;
 DROP TABLE IF EXISTS `ingredients`;
 DROP TABLE IF EXISTS `payments`;
@@ -89,6 +90,7 @@ CREATE TABLE `menus` (
   `id`          INT UNSIGNED NOT NULL AUTO_INCREMENT,
   `category_id` INT UNSIGNED NOT NULL,
   `name`        VARCHAR(150) NOT NULL,
+  `name_en`     VARCHAR(150) NULL COMMENT 'ชื่อภาษาอังกฤษ (แสดงเมื่อเลือกภาษา EN, ว่าง = ใช้ชื่อไทย)',
   `description` VARCHAR(500) NULL,
   `price`       DECIMAL(10,2) NOT NULL,
   `image_url`   VARCHAR(255) NULL,
@@ -120,8 +122,10 @@ CREATE TABLE `menu_options` (
   `category_id` INT UNSIGNED NULL,
   `option_type` ENUM('size','topping') NOT NULL,
   `name`        VARCHAR(100) NOT NULL,
+  `name_en`     VARCHAR(100) NULL COMMENT 'ชื่อภาษาอังกฤษ (ว่าง = ใช้ชื่อไทย)',
   `extra_price` DECIMAL(10,2) NOT NULL DEFAULT 0.00,
   `is_default`  TINYINT(1) NOT NULL DEFAULT 0 COMMENT 'ค่าเริ่มต้นของกลุ่ม size',
+  `recipe_extra_percent` DECIMAL(5,2) NOT NULL DEFAULT 0.00 COMMENT 'ตัดสต็อกตามสูตรเมนูเพิ่มกี่ % เมื่อเลือกตัวเลือกนี้ (เช่น พิเศษ = 50)',
   `sort_order`  INT NOT NULL DEFAULT 0,
   `is_active`   TINYINT(1) NOT NULL DEFAULT 1,
   `created_at`  DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -134,7 +138,8 @@ CREATE TABLE `menu_options` (
   CONSTRAINT `fk_menu_options_category` FOREIGN KEY (`category_id`) REFERENCES `categories` (`id`)
     ON UPDATE CASCADE ON DELETE CASCADE,
   CONSTRAINT `chk_menu_options_price` CHECK (`extra_price` >= 0),
-  CONSTRAINT `chk_menu_options_scope` CHECK (`menu_id` IS NULL OR `category_id` IS NULL)
+  CONSTRAINT `chk_menu_options_scope` CHECK (`menu_id` IS NULL OR `category_id` IS NULL),
+  CONSTRAINT `chk_menu_options_recipe_pct` CHECK (`recipe_extra_percent` >= 0 AND `recipe_extra_percent` <= 500)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- ---------------------------------------------------------------------
@@ -193,6 +198,7 @@ CREATE TABLE `order_items` (
   `order_id`      BIGINT UNSIGNED NOT NULL,
   `menu_id`       INT UNSIGNED NULL COMMENT 'อ้างอิงเมนูต้นทาง (อาจเป็น NULL ถ้าเมนูถูกลบ)',
   `menu_name`     VARCHAR(150) NOT NULL,
+  `menu_name_en`  VARCHAR(150) NULL COMMENT 'snapshot ชื่อภาษาอังกฤษ ณ เวลาสั่ง',
   `category_name` VARCHAR(100) NULL,
   `unit_price`    DECIMAL(10,2) NOT NULL,
   `options_price` DECIMAL(10,2) NOT NULL DEFAULT 0.00,
@@ -219,6 +225,7 @@ CREATE TABLE `order_item_options` (
   `menu_option_id` INT UNSIGNED NULL,
   `option_type`    ENUM('size','topping') NOT NULL,
   `option_name`    VARCHAR(100) NOT NULL,
+  `option_name_en` VARCHAR(100) NULL COMMENT 'snapshot ชื่อภาษาอังกฤษ ณ เวลาสั่ง',
   `extra_price`    DECIMAL(10,2) NOT NULL DEFAULT 0.00,
   PRIMARY KEY (`id`),
   KEY `idx_oio_item` (`order_item_id`),
@@ -287,6 +294,24 @@ CREATE TABLE `menu_ingredients` (
   CONSTRAINT `fk_mi_ingredient` FOREIGN KEY (`ingredient_id`) REFERENCES `ingredients` (`id`)
     ON UPDATE CASCADE ON DELETE CASCADE,
   CONSTRAINT `chk_mi_qty` CHECK (`quantity` > 0)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- ---------------------------------------------------------------------
+-- option_ingredients : วัตถุดิบที่ตัวเลือกใช้เพิ่มต่อ 1 จาน (เช่น ไข่ดาว = ไข่ไก่ 1 ฟอง)
+--   ตัดสต็อกพร้อมสูตรเมนูเมื่อสร้างออเดอร์ (คูณจำนวนจาน)
+--   ส่วน "พิเศษ" ที่เพิ่มตามสูตรของแต่ละเมนูใช้ menu_options.recipe_extra_percent แทน
+-- ---------------------------------------------------------------------
+CREATE TABLE `option_ingredients` (
+  `option_id`     INT UNSIGNED NOT NULL,
+  `ingredient_id` INT UNSIGNED NOT NULL,
+  `quantity`      DECIMAL(12,3) NOT NULL COMMENT 'ปริมาณที่ใช้ต่อ 1 จาน',
+  PRIMARY KEY (`option_id`, `ingredient_id`),
+  KEY `idx_oi_ingredient` (`ingredient_id`),
+  CONSTRAINT `fk_oi_option` FOREIGN KEY (`option_id`) REFERENCES `menu_options` (`id`)
+    ON UPDATE CASCADE ON DELETE CASCADE,
+  CONSTRAINT `fk_oi_ingredient` FOREIGN KEY (`ingredient_id`) REFERENCES `ingredients` (`id`)
+    ON UPDATE CASCADE ON DELETE CASCADE,
+  CONSTRAINT `chk_oi_qty` CHECK (`quantity` > 0)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- ---------------------------------------------------------------------

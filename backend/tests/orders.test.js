@@ -342,6 +342,11 @@ describe('รายงานและ Dashboard นับเฉพาะที�
     assert.equal(dash.status, 200);
     assert.equal(dash.body.data.today.sales, expected.net);
     assert.equal(dash.body.data.today.paidOrders, Number(expected.bills));
+
+    // วัตถุดิบใกล้หมด: lowStockCount = จำนวนทั้งหมด, lowStock แสดงไม่เกิน 10 รายการ
+    const [[{ n }]] = await ctx.pool.query('SELECT COUNT(*) AS n FROM ingredients WHERE is_active = 1 AND quantity <= min_quantity');
+    assert.equal(dash.body.data.lowStockCount, Number(n));
+    assert.equal(dash.body.data.lowStock.length, Math.min(Number(n), 10));
   });
 
   test('ช่วงวันที่ไม่ถูกต้อง -> 400', async () => {
