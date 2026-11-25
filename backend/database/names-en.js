@@ -62,11 +62,10 @@ const OPTION_NAMES_EN = {
   เพิ่มเวย์โปรตีน: 'Add Whey Protein',
   เพิ่มเมล็ดเชีย: 'Add Chia Seeds',
   ปั่น: 'Blended',
-  โคล่า: 'Cola',
+  โค้ก: 'Cola',
   น้ำแดง: 'Red Soda',
   น้ำเขียว: 'Green Soda',
   น้ำส้ม: 'Orange Soda',
-  น้ำใส: 'Lemon-Lime Soda',
 };
 
 /** ใส่ชื่ออังกฤษให้แถวที่ยังว่าง — conn: connection/pool ที่เลือกฐานข้อมูลแล้ว คืนจำนวนแถวที่อัปเดต */
