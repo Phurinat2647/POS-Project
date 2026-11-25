@@ -7,7 +7,7 @@ import RecipeModal from '../components/RecipeModal';
 import { useAuth } from '../contexts/AuthContext';
 import { useSocketEvent } from '../contexts/SocketContext';
 import { getCategories } from '../services/category.service';
-import { createMenu, deleteMenu, getMenus, updateMenu, updateMenuStatus } from '../services/menu.service';
+import { createMenu, deleteMenu, getMenus, setMenuExtraCost, updateMenu, updateMenuStatus } from '../services/menu.service';
 import { confirmDelete, showError, toastSuccess } from '../utils/alert';
 import { formatCurrency } from '../utils/format';
 import { MENU_STATUS } from '../utils/labels';
@@ -65,7 +65,11 @@ export default function MenusPage() {
     setBusyId(menu.id);
     try {
       const res = await updateMenuStatus(menu.id, next);
-      setMenus((list) => list.map((m) => (m.id === menu.id ? res.data : m)).filter((m) => !filters.status || m.status === filters.status));
+      setMenus((list) =>
+        list
+          .map((m) => (m.id === menu.id ? { ...res.data, costing: m.costing } : m)) // costing ไม่มาจาก endpoint สถานะ
+          .filter((m) => !filters.status || m.status === filters.status)
+      );
       toastSuccess(res.message);
     } catch (err) {
       showError(err.userMessage);
@@ -153,6 +157,7 @@ export default function MenusPage() {
                 onEdit={() => setEditing(m)}
                 onDelete={() => handleDelete(m)}
                 onRecipe={canSeeRecipe ? () => setRecipeMenu(m) : null}
+                onCostingChange={(costing) => setMenus((list) => list.map((x) => (x.id === m.id ? { ...x, costing } : x)))}
               />
             ))}
           </div>
@@ -187,7 +192,91 @@ function MenuImage({ src, alt, className = '' }) {
   return <img src={src} alt={alt} className={`object-cover ${className}`} onError={() => setFailed(true)} loading="lazy" />;
 }
 
-function MenuCard({ menu, isAdmin, busy, onToggle, onEdit, onDelete, onRecipe }) {
+/**
+ * ต้นทุน/กำไรต่อจาน (ขนาดปกติ ไม่รวมตัวเลือก) — API ส่งมาเฉพาะ admin
+ * ต้นทุนวัตถุดิบคำนวณจากสูตร + "ค่าอื่น ๆ" พิมพ์เอง (กล่อง แก๊ส แก้ว) บันทึกเมื่อออกจากช่อง/กด Enter
+ */
+function MenuCosting({ menuId, costing, onChange }) {
+  const [extra, setExtra] = useState(String(costing.extraCost || ''));
+  const [saving, setSaving] = useState(false);
+
+  const save = async () => {
+    const value = extra.trim() === '' ? 0 : Number(extra);
+    if (value === (costing.extraCost || 0)) return;
+    if (!Number.isFinite(value) || value < 0) {
+      showError(t('ค่าอื่น ๆ ต้องเป็นตัวเลขตั้งแต่ 0 ขึ้นไป'));
+      setExtra(String(costing.extraCost || ''));
+      return;
+    }
+    setSaving(true);
+    try {
+      const res = await setMenuExtraCost(menuId, value);
+      onChange?.(res.data);
+      setExtra(String(res.data.extraCost || ''));
+    } catch (err) {
+      showError(err.userMessage);
+      setExtra(String(costing.extraCost || ''));
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const loss = costing.profit !== null && costing.profit < 0;
+  return (
+    <div className="mt-1.5 space-y-0.5 rounded-lg bg-slate-50 px-2 py-1.5 text-xs" title={t('ต้นทุนต่อจาน ขนาดปกติ ไม่รวมตัวเลือก')}>
+      <div className="flex justify-between gap-2">
+        <span className="text-slate-500">{t('ต้นทุนวัตถุดิบ')}</span>
+        {costing.ingredientCost === null ? (
+          <span className="text-slate-400">{t('ไม่มีสูตร')}</span>
+        ) : (
+          <span className="tabular-nums">{formatCurrency(costing.ingredientCost)}</span>
+        )}
+      </div>
+      <label className="flex items-center justify-between gap-2">
+        <span className="text-slate-500">{t('ค่าอื่น ๆ')}</span>
+        <input
+          type="number"
+          inputMode="decimal"
+          min="0"
+          step="0.01"
+          value={extra}
+          disabled={saving}
+          placeholder="0"
+          aria-label={t('ค่าอื่น ๆ ต่อจาน (กล่อง แก๊ส แก้ว)')}
+          title={t('ค่าอื่น ๆ ต่อจาน (กล่อง แก๊ส แก้ว)')}
+          onChange={(e) => setExtra(e.target.value)}
+          onBlur={save}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') e.currentTarget.blur();
+          }}
+          className="w-16 rounded-md border border-slate-300 bg-white px-1.5 py-0.5 text-right text-xs tabular-nums focus:border-primary-700 focus:outline-none disabled:opacity-50"
+        />
+      </label>
+      {costing.cost === null ? (
+        <div className="text-slate-400">{t('ยังไม่มีสูตร — คำนวณต้นทุนไม่ได้')}</div>
+      ) : (
+        <>
+          <div className="flex justify-between gap-2 border-t border-slate-200 pt-0.5">
+            <span className="text-slate-500">{t('ต้นทุนรวม')}</span>
+            <span className="font-medium tabular-nums">{formatCurrency(costing.cost)}</span>
+          </div>
+          <div className="flex justify-between gap-2">
+            <span className="text-slate-500">{loss ? t('ขาดทุน') : t('กำไร')}</span>
+            <span className={`font-semibold tabular-nums ${loss ? 'text-danger' : 'text-success'}`}>
+              {formatCurrency(costing.profit)}
+              {costing.marginPercent !== null && <span className="font-normal"> ({costing.marginPercent}%)</span>}
+            </span>
+          </div>
+        </>
+      )}
+      {costing.missingCostItems > 0 && (
+        <div className="text-warning">{t('* วัตถุดิบ {0} รายการยังไม่ได้ใส่ต้นทุน', [costing.missingCostItems])}</div>
+      )}
+    </div>
+  );
+}
+
+function MenuCard({ menu, isAdmin, busy, onToggle, onEdit, onDelete, onRecipe, onCostingChange }) {
   const soldOut = menu.status === 'sold_out';
   return (
     <div className="card flex flex-col overflow-hidden">
@@ -203,6 +292,7 @@ function MenuCard({ menu, isAdmin, busy, onToggle, onEdit, onDelete, onRecipe })
         <div className="line-clamp-2 font-medium leading-snug">{localName(menu)}</div>
         <OtherName item={menu} />
         <div className="mt-1 font-semibold text-primary-800 tabular-nums">{formatCurrency(menu.price)}</div>
+        {menu.costing && <MenuCosting menuId={menu.id} costing={menu.costing} onChange={onCostingChange} />}
         {onRecipe && (
           <button
             onClick={onRecipe}

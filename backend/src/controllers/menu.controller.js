@@ -38,6 +38,7 @@ async function list(req, res) {
     status: req.query.status ? v.oneOf(req.query.status, STATUSES, 'สถานะ') : null,
     search: v.optionalString(req.query.search, 'คำค้นหา', 100),
     includeInactive,
+    withCost: req.user.role === 'admin', // ต้นทุน/กำไร เป็นข้อมูลธุรกิจ — แสดงเฉพาะ admin
   });
   res.json({ success: true, data });
 }
@@ -69,6 +70,13 @@ async function updateStatus(req, res) {
   const data = await service.updateStatus(v.id(req.params.id), status);
   emitEvent('menu:updated', { menu: data }); // หน้า POS อัปเดตเมนูที่หมดทันที
   res.json({ success: true, data, message: status === 'available' ? 'เปิดขายเมนูแล้ว' : 'ตั้งเป็นเมนูหมดแล้ว' });
+}
+
+/** ต้นทุนอื่นต่อจาน (กล่อง แก๊ส แก้ว) — บวกกับต้นทุนวัตถุดิบในการ์ดเมนู (admin) */
+async function setExtraCost(req, res) {
+  const extraCost = v.money(req.body?.extraCost ?? 0, 'ต้นทุนอื่น', { max: 99999.99 });
+  const data = await service.setExtraCost(v.id(req.params.id), extraCost);
+  res.json({ success: true, data, message: 'บันทึกต้นทุนอื่นแล้ว' });
 }
 
 async function remove(req, res) {
@@ -122,4 +130,4 @@ function parseRecipeItems(raw) {
   });
 }
 
-module.exports = { list, getOne, create, update, updateStatus, remove, getRecipe, setRecipe, parseRecipeItems };
+module.exports = { list, getOne, create, update, updateStatus, remove, setExtraCost, getRecipe, setRecipe, parseRecipeItems };

@@ -37,7 +37,9 @@ export function buildLine(menu, { sizeId, toppingIds, quantity, note }) {
  * ใช้ key ภายนอกเพื่อรีเซ็ต state เมื่อเปลี่ยนเมนู
  */
 export default function MenuItemModal({ menu, initial, onClose, onSubmit }) {
-  const defaultSize = menu.sizes.find((s) => s.isDefault) || menu.sizes[0];
+  // กลุ่มเลือก 1 อย่างที่มีค่าเริ่มต้น = ขนาด (ธรรมดา/พิเศษ); ไม่มีค่าเริ่มต้น = ต้องเลือกเอง เช่น รสน้ำอัดลม
+  const defaultSize = menu.sizes.find((s) => s.isDefault);
+  const mustChoose = menu.sizes.length > 0 && !defaultSize;
   const [sizeId, setSizeId] = useState(initial?.sizeId ?? defaultSize?.id ?? null);
   const [toppingIds, setToppingIds] = useState(initial?.toppingIds ?? []);
   const [quantity, setQuantity] = useState(initial?.quantity ?? 1);
@@ -57,6 +59,7 @@ export default function MenuItemModal({ menu, initial, onClose, onSubmit }) {
 
   const submit = (e) => {
     e.preventDefault();
+    if (mustChoose && !preview.sizeId) return; // Enter ในช่องหมายเหตุ
     onSubmit(preview);
   };
 
@@ -70,7 +73,7 @@ export default function MenuItemModal({ menu, initial, onClose, onSubmit }) {
           <button type="button" className="btn-outline" onClick={onClose}>
             {t('ยกเลิก')}
           </button>
-          <button type="submit" form="menu-item-form" className="btn-primary">
+          <button type="submit" form="menu-item-form" className="btn-primary" disabled={mustChoose && !sizeId}>
             {initial ? t('บันทึก') : t('เพิ่มลงตะกร้า')} · {formatCurrency(lineTotal)}
           </button>
         </>
@@ -84,7 +87,10 @@ export default function MenuItemModal({ menu, initial, onClose, onSubmit }) {
 
         {menu.sizes.length > 0 && (
           <fieldset>
-            <legend className="label">{t('ขนาด')} <span className="font-normal text-slate-400">{t('(เลือก 1 อย่าง)')}</span></legend>
+            <legend className="label">
+              {mustChoose ? t('เลือกแบบ') : t('ขนาด')} <span className="font-normal text-slate-400">{t('(เลือก 1 อย่าง)')}</span>
+              {mustChoose && !sizeId && <span className="ml-1 font-normal text-danger">{t('* ต้องเลือก')}</span>}
+            </legend>
             <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
               {menu.sizes.map((s) => (
                 <label

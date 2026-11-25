@@ -29,6 +29,9 @@ export const updateMenu = async (id, form) => (await api.put(`/menus/${id}`, toF
 
 export const updateMenuStatus = async (id, status) => (await api.patch(`/menus/${id}/status`, { status })).data;
 
+/** ต้นทุนอื่นต่อจาน (admin) -> { data: costing } */
+export const setMenuExtraCost = async (id, extraCost) => (await api.patch(`/menus/${id}/extra-cost`, { extraCost })).data;
+
 export const deleteMenu = async (id) => (await api.delete(`/menus/${id}`)).data;
 
 /** สูตรอาหาร: [{ ingredientId, name, unit, quantity, stock, isActive }] */

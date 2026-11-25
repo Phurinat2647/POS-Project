@@ -3,6 +3,7 @@ const ApiError = require('../utils/ApiError');
 const { removeMenuImage } = require('../config/upload');
 const menuOptionService = require('./menuOption.service');
 const { shortIngredients } = require('./menuAvailability.service');
+const { toSatang, toBaht } = require('../utils/money');
 
 const toMenu = (r) => ({
   id: r.id,
@@ -25,10 +26,72 @@ const BASE_SELECT = `
     FROM menus m JOIN categories c ON c.id = m.category_id`;
 
 /**
+ * ต้นทุน/กำไรต่อจาน (ขนาดปกติ ไม่รวมตัวเลือก)
+ *   ต้นทุนวัตถุดิบ = สูตร menu_ingredients × ingredients.cost_per_unit
+ *   ต้นทุนรวม     = ต้นทุนวัตถุดิบ + menus.extra_cost (ค่ากล่อง แก๊ส แก้ว ที่ admin พิมพ์เอง)
+ * extraById: Map<menuId, extra_cost>
+ * คืน Map<menuId, { ingredientCost, extraCost, cost, profit, marginPercent, recipeItems, missingCostItems }>
+ *   - ไม่มีสูตร -> ingredientCost = null; ถ้าไม่มีต้นทุนอื่นด้วย -> cost/profit = null
+ *   - วัตถุดิบบางตัวไม่ได้ใส่ต้นทุน -> นับเป็น 0 และแจ้ง missingCostItems
+ */
+async function costsFor(menus, extraById) {
+  const ids = menus.map((m) => m.id);
+  const out = new Map();
+  if (!ids.length) return out;
+  const [rows] = await pool.query(
+    `SELECT mi.menu_id, mi.quantity, i.cost_per_unit
+       FROM menu_ingredients mi JOIN ingredients i ON i.id = mi.ingredient_id
+      WHERE mi.menu_id IN (?)`,
+    [ids]
+  );
+  const acc = new Map();
+  for (const r of rows) {
+    const a = acc.get(r.menu_id) || { satang: 0, items: 0, missing: 0 };
+    a.items += 1;
+    if (r.cost_per_unit === null) a.missing += 1;
+    // quantity มีทศนิยม 3 ตำแหน่ง -> คิดเป็นสตางค์แบบทศนิยมก่อน แล้วปัดตอนรวม
+    else a.satang += Number(r.quantity) * toSatang(r.cost_per_unit);
+    acc.set(r.menu_id, a);
+  }
+  for (const m of menus) {
+    const a = acc.get(m.id);
+    const extraSatang = toSatang(extraById.get(m.id) || 0);
+    const ingredientSatang = a ? Math.round(a.satang) : null;
+    const base = { ingredientCost: ingredientSatang === null ? null : toBaht(ingredientSatang), extraCost: toBaht(extraSatang) };
+    const meta = { recipeItems: a?.items ?? 0, missingCostItems: a?.missing ?? 0 };
+    if (ingredientSatang === null && extraSatang === 0) {
+      out.set(m.id, { ...base, cost: null, profit: null, marginPercent: null, ...meta });
+      continue;
+    }
+    const costSatang = (ingredientSatang ?? 0) + extraSatang;
+    const priceSatang = toSatang(m.price);
+    const profitSatang = priceSatang - costSatang;
+    out.set(m.id, {
+      ...base,
+      cost: toBaht(costSatang),
+      profit: toBaht(profitSatang),
+      marginPercent: priceSatang > 0 ? Math.round((profitSatang / priceSatang) * 1000) / 10 : null,
+      ...meta,
+    });
+  }
+  return out;
+}
+
+/** ตั้งต้นทุนอื่นต่อจาน (admin) — คืน costing ใหม่ของเมนูนั้น */
+async function setExtraCost(id, extraCost) {
+  const [r] = await pool.query('UPDATE menus SET extra_cost = ? WHERE id = ? AND is_active = 1', [extraCost, id]);
+  if (!r.affectedRows) throw ApiError.notFound('ไม่พบเมนู');
+  const [[row]] = await pool.query('SELECT id, price, extra_cost FROM menus WHERE id = ?', [id]);
+  const costs = await costsFor([row], new Map([[row.id, row.extra_cost]]));
+  return costs.get(row.id);
+}
+
+/**
  * รายการเมนู
  * filters: categoryId, status (available/sold_out), search (ชื่อ), includeInactive (เฉพาะ admin)
+ * withCost: แนบต้นทุน/กำไรต่อจาน (เฉพาะ admin)
  */
-async function list({ categoryId, status, search, includeInactive = false } = {}) {
+async function list({ categoryId, status, search, includeInactive = false, withCost = false } = {}) {
   const where = [];
   const params = [];
   if (!includeInactive) where.push('m.is_active = 1');
@@ -50,7 +113,12 @@ async function list({ categoryId, status, search, includeInactive = false } = {}
      ORDER BY c.sort_order, c.id, m.name`,
     params
   );
-  return rows.map(toMenu);
+  const menus = rows.map(toMenu);
+  if (withCost) {
+    const costs = await costsFor(menus, new Map(rows.map((r) => [r.id, r.extra_cost])));
+    for (const m of menus) m.costing = costs.get(m.id);
+  }
+  return menus;
 }
 
 async function getById(id, { withOptions = false, includeInactive = true } = {}) {
@@ -149,4 +217,4 @@ async function remove(id) {
   return { softDeleted: false };
 }
 
-module.exports = { list, getById, create, update, updateStatus, remove };
+module.exports = { list, getById, create, update, updateStatus, remove, setExtraCost };
