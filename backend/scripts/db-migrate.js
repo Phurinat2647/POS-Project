@@ -160,6 +160,34 @@ const MIGRATIONS = [
       }
     },
   },
+  {
+    name: 'VAT บวกเพิ่มตอนชำระ (orders.vat_rate, orders.vat_amount + settings vat_enabled/vat_rate)',
+    async run() {
+      if (!(await columnExists('orders', 'vat_rate'))) {
+        await pool.query(
+          "ALTER TABLE `orders` ADD COLUMN `vat_rate` DECIMAL(5,2) NOT NULL DEFAULT 0.00 COMMENT 'อัตรา VAT (%) ที่ใช้ตอนชำระ, 0 = ไม่คิด VAT' AFTER `discount`"
+        );
+        console.log('  + เพิ่ม orders.vat_rate');
+      }
+      if (!(await columnExists('orders', 'vat_amount'))) {
+        await pool.query(
+          "ALTER TABLE `orders` ADD COLUMN `vat_amount` DECIMAL(12,2) NOT NULL DEFAULT 0.00 COMMENT 'VAT ที่บวกเพิ่มจาก (subtotal - discount)' AFTER `vat_rate`"
+        );
+        console.log('  + เพิ่ม orders.vat_amount');
+      }
+      if (!(await checkExists('orders', 'chk_orders_vat'))) {
+        await pool.query(
+          'ALTER TABLE `orders` ADD CONSTRAINT `chk_orders_vat` CHECK (`vat_rate` >= 0 AND `vat_rate` <= 30 AND `vat_amount` >= 0)'
+        );
+        console.log('  + เพิ่ม orders.chk_orders_vat');
+      }
+      // ค่าเริ่มต้น: ปิด VAT, อัตรา 7% (ไม่ทับค่าที่ตั้งไว้แล้ว)
+      const [r] = await pool.query(
+        "INSERT IGNORE INTO settings (setting_key, setting_value) VALUES ('vat_enabled', '0'), ('vat_rate', '7')"
+      );
+      if (r.affectedRows) console.log(`  + เพิ่มค่าตั้งต้น VAT ใน settings ${r.affectedRows} คีย์`);
+    },
+  },
 ];
 
 (async () => {

@@ -329,6 +329,9 @@ function OrderDetailModal({ order, busy, onClose, onChangeStatus, onPay }) {
         {order.discount > 0 && (
           <div className="flex justify-between"><dt className="text-slate-500">{t('ส่วนลด')}</dt><dd className="tabular-nums">-{formatCurrency(order.discount)}</dd></div>
         )}
+        {order.vatAmount > 0 && (
+          <div className="flex justify-between"><dt className="text-slate-500">{t('VAT {0}%', [order.vatRate])}</dt><dd className="tabular-nums">+{formatCurrency(order.vatAmount)}</dd></div>
+        )}
         <div className="flex justify-between text-base font-semibold"><dt>{t('ยอดสุทธิ')}</dt><dd className="text-primary-800 tabular-nums">{formatCurrency(order.total)}</dd></div>
       </dl>
 

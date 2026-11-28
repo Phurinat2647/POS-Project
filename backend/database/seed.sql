@@ -114,8 +114,8 @@ INSERT INTO `menu_options` (`menu_id`, `category_id`, `option_type`, `name`, `ex
 INSERT INTO `menu_options` (`menu_id`, `category_id`, `option_type`, `name`, `extra_price`, `sort_order`)
 SELECT m.`id`, NULL, 'size', f.`name`, 0.00, f.`sort_order`
   FROM `menus` m
-  JOIN (SELECT 'โคล่า' AS `name`, 1 AS `sort_order` UNION ALL SELECT 'น้ำแดง', 2 UNION ALL SELECT 'น้ำเขียว', 3
-        UNION ALL SELECT 'น้ำส้ม', 4 UNION ALL SELECT 'น้ำใส', 5) f
+  JOIN (SELECT 'โค้ก' AS `name`, 1 AS `sort_order` UNION ALL SELECT 'น้ำแดง', 2 UNION ALL SELECT 'น้ำเขียว', 3
+        UNION ALL SELECT 'น้ำส้ม', 4) f
  WHERE m.`name` = 'น้ำอัดลม';
 
 -- ปั่น (เครื่องดื่มที่ปั่นได้ — ไม่รวมน้ำเปล่า น้ำอัดลม และน้ำปั่นคลีนที่ปั่นอยู่แล้ว)
@@ -142,8 +142,7 @@ INSERT INTO `ingredients` (`name`, `unit`, `quantity`, `min_quantity`, `cost_per
   ('น้ำอัดลม โคล่า',     'กระป๋อง',  24.000, 12.000, 12.00),
   ('น้ำอัดลม น้ำแดง',    'กระป๋อง',  24.000, 12.000, 12.00),
   ('น้ำอัดลม น้ำเขียว',   'กระป๋อง',  24.000, 12.000, 12.00),
-  ('น้ำอัดลม น้ำส้ม',    'กระป๋อง',  24.000, 12.000, 12.00),
-  ('น้ำอัดลม น้ำใส',     'กระป๋อง',  24.000, 12.000, 12.00);
+  ('น้ำอัดลม น้ำส้ม',    'กระป๋อง',  24.000, 12.000, 12.00);
 
 -- บันทึกยอดยกมาเป็นรายการรับเข้า (เพื่อให้ประวัติสอดคล้องกับยอดคงเหลือ)
 INSERT INTO `inventory_transactions` (`ingredient_id`, `type`, `quantity`, `balance_after`, `unit_cost`, `note`, `created_by`)
@@ -158,4 +157,6 @@ INSERT INTO `settings` (`setting_key`, `setting_value`) VALUES
   ('shop_phone',       '02-123-4567'),
   ('tax_id',           ''),
   ('promptpay_id',     '0812345678'),
-  ('receipt_footer',   'ขอบคุณที่ใช้บริการ');
+  ('receipt_footer',   'ขอบคุณที่ใช้บริการ'),
+  ('vat_enabled',      '0'),
+  ('vat_rate',         '7');

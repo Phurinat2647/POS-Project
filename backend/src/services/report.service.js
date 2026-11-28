@@ -5,7 +5,8 @@ const { toSatang, toBaht } = require('../utils/money');
  * รายงานยอดขาย — นับเฉพาะออเดอร์ที่ชำระแล้ว ตามวันที่ชำระ (paid_at)
  * ช่วงวันที่ from..to (YYYY-MM-DD) รวมทั้งสองวัน
  * ข้อมูลเมนู/หมวดหมู่อ่านจาก snapshot ใน order_items (ไม่ join ไปที่ menus)
- * หมายเหตุ: ยอดรายเมนู/หมวด = line_total (ก่อนหักส่วนลดท้ายบิล)
+ * หมายเหตุ: ยอดรายเมนู/หมวด = line_total (ก่อนหักส่วนลดท้ายบิล และไม่รวม VAT)
+ * ยอดขายสุทธิ (orders.total) = subtotal - discount + vat_amount
  */
 
 const baht = (v) => toBaht(toSatang(v || 0));
@@ -29,7 +30,7 @@ async function getSalesReport({ from, to }) {
 
   const [[summary]] = await pool.query(
     `SELECT COUNT(*) AS bills, COALESCE(SUM(o.subtotal), 0) AS gross, COALESCE(SUM(o.discount), 0) AS discount,
-            COALESCE(SUM(o.total), 0) AS net
+            COALESCE(SUM(o.vat_amount), 0) AS vat, COALESCE(SUM(o.total), 0) AS net
        FROM orders o WHERE ${PAID_IN_RANGE}`,
     range
   );
@@ -100,7 +101,7 @@ async function getSalesReport({ from, to }) {
   );
 
   const [orderRows] = await pool.query(
-    `SELECT o.order_no, o.order_type, o.table_no, o.subtotal, o.discount, o.total, o.paid_at, p.method,
+    `SELECT o.order_no, o.order_type, o.table_no, o.subtotal, o.discount, o.vat_amount, o.total, o.paid_at, p.method,
             (SELECT SUM(oi.quantity) FROM order_items oi WHERE oi.order_id = o.id) AS item_count
        FROM orders o JOIN payments p ON p.order_id = o.id
       WHERE ${PAID_IN_RANGE}
@@ -118,6 +119,7 @@ async function getSalesReport({ from, to }) {
       itemsSold: Number(items.qty),
       grossSales: baht(summary.gross),
       discount: baht(summary.discount),
+      vat: baht(summary.vat),
       netSales: net,
       averagePerBill: bills ? toBaht(Math.round(toSatang(net) / bills)) : 0,
       cancelledOrders: Number(cancelled.n),
@@ -137,6 +139,7 @@ async function getSalesReport({ from, to }) {
       itemCount: Number(r.item_count || 0),
       subtotal: r.subtotal,
       discount: r.discount,
+      vatAmount: r.vat_amount,
       total: r.total,
       method: r.method,
       paidAt: r.paid_at,

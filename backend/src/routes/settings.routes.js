@@ -23,6 +23,14 @@ function taxId(value) {
   return digits;
 }
 
+/** อัตรา VAT (%) มากกว่า 0 ไม่เกิน 30 ทศนิยมไม่เกิน 2 ตำแหน่ง — ไม่ส่งมา = คงค่าเดิม */
+function vatRate(value) {
+  if (value === undefined) return undefined;
+  const n = v.money(value, 'อัตรา VAT', { max: 30 });
+  if (n <= 0) throw ApiError.badRequest('อัตรา VAT ต้องมากกว่า 0');
+  return n;
+}
+
 router.use(authenticate);
 
 /** GET /api/settings — ข้อมูลร้าน (ใช้กับใบเสร็จ / QR PromptPay) */
@@ -47,6 +55,8 @@ router.put(
       taxId: taxId(b.taxId),
       promptpayId: promptpayId(b.promptpayId),
       receiptFooter: v.optionalString(b.receiptFooter, 'ข้อความท้ายใบเสร็จ', 200) ?? '',
+      vatEnabled: b.vatEnabled === undefined ? undefined : v.bool(b.vatEnabled),
+      vatRate: vatRate(b.vatRate),
     });
     res.json({ success: true, data, message: 'บันทึกการตั้งค่าร้านสำเร็จ' });
   })

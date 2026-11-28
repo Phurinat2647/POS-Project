@@ -36,6 +36,8 @@ const toOrder = (r) => ({
   paymentStatus: r.payment_status,
   subtotal: r.subtotal,
   discount: r.discount,
+  vatRate: r.vat_rate ?? 0,
+  vatAmount: r.vat_amount ?? 0,
   total: r.total,
   note: r.note,
   cashierId: r.cashier_id,

@@ -96,6 +96,7 @@ export default function ReportPrintPage() {
             <tbody>
               <KV label={t('ยอดก่อนส่วนลด')} value={formatCurrency(s.grossSales)} />
               <KV label={t('ส่วนลดรวม')} value={`- ${formatCurrency(s.discount)}`} />
+              {s.vat > 0 && <KV label={t('VAT รวม')} value={`+ ${formatCurrency(s.vat)}`} />}
               <KV label={t('ยอดขายสุทธิ')} value={formatCurrency(s.netSales)} bold />
               <KV label={t('ออเดอร์ที่ยกเลิก ({0} ออเดอร์)', [formatNumber(s.cancelledOrders)])} value={formatCurrency(s.cancelledAmount)} muted />
               <KV label={t('ออเดอร์ค้างชำระ ({0} ออเดอร์) — ไม่นับในยอดขาย', [formatNumber(s.unpaidOrders)])} value={formatCurrency(s.unpaidAmount)} muted />
@@ -138,7 +139,7 @@ export default function ReportPrintPage() {
 
         <Section title={t('รายการบิล ({0} บิล)', [formatNumber(report.orders.length)])}>
           <Table
-            head={[t('เลขออเดอร์'), t('วันเวลาชำระ'), t('ประเภท'), t('รายการ'), t('ยอดรวม'), t('ส่วนลด'), t('สุทธิ'), t('ชำระด้วย')]}
+            head={[t('เลขออเดอร์'), t('วันเวลาชำระ'), t('ประเภท'), t('รายการ'), t('ยอดรวม'), t('ส่วนลด'), 'VAT', t('สุทธิ'), t('ชำระด้วย')]}
             rows={report.orders.map((o) => [
               o.orderNo,
               formatDateTime(o.paidAt),
@@ -146,6 +147,7 @@ export default function ReportPrintPage() {
               formatNumber(o.itemCount),
               formatCurrency(o.subtotal),
               o.discount ? formatCurrency(o.discount) : '-',
+              o.vatAmount ? formatCurrency(o.vatAmount) : '-',
               formatCurrency(o.total),
               METHOD_LABEL[o.method] || o.method,
             ])}
@@ -154,7 +156,7 @@ export default function ReportPrintPage() {
         </Section>
 
         <footer className="mt-6 border-t border-slate-300 pt-2 text-[10px] text-slate-500">
-          {t('นับเฉพาะออเดอร์ที่ชำระเงินแล้ว ตามวันที่ชำระ · ยอดแยกหมวด/เมนูเป็นยอดก่อนส่วนลดท้ายบิล')}
+          {t('นับเฉพาะออเดอร์ที่ชำระเงินแล้ว ตามวันที่ชำระ · ยอดสุทธิรวม VAT · ยอดแยกหมวด/เมนูเป็นยอดก่อนส่วนลดท้ายบิลและไม่รวม VAT')}
         </footer>
       </article>
     </div>

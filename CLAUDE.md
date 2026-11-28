@@ -98,7 +98,11 @@ backend/scripts/db-migrate.js           — migration แบบ idempotent ส�
 - **Socket events**: `order:created`, `order:updated` (`{ order }`), `menu:updated` (`{ menu }`) — ส่งไปทุก role
 - **Payment** — 1 ออเดอร์ชำระได้ครั้งเดียว (`UNIQUE(order_id)`), ต้องอัปเดต `orders.payment_status='paid'` และ `paid_at` ใน transaction เดียวกัน
   (`payment.service.js`: lock ด้วย FOR UPDATE, ส่วนลด amount/percent คำนวณจาก `orders.subtotal` ใน DB, เขียน `orders.discount/total` ตอนชำระ)
-  ค่าตั้งต้นที่ผู้ใช้เลือก: ไม่คิด VAT, admin+cashier ให้ส่วนลดได้, ชำระได้ทั้งตอนส่งออเดอร์และภายหลัง
+  ค่าตั้งต้นที่ผู้ใช้เลือก: admin+cashier ให้ส่วนลดได้, ชำระได้ทั้งตอนส่งออเดอร์และภายหลัง
+  **VAT (บวกเพิ่ม)**: เปิด/ปิดที่ `/settings` (`settings.vat_enabled` ค่าตั้งต้น 0, `vat_rate` ค่าตั้งต้น 7) —
+  ตอนชำระ `vat = round((subtotal - discount) × rate%)` สตางค์, `total = subtotal - discount + vat`, เก็บ snapshot `orders.vat_rate/vat_amount`
+  (ใบเสร็จเก่าไม่เปลี่ยนเมื่อแก้ค่าภายหลัง); ยอดขายสุทธิ/Dashboard = `orders.total` (รวม VAT), รายเมนู/หมวดไม่รวม VAT;
+  สูตรฝั่ง frontend (`PaymentModal.vatSatang`) ต้องตรงกับ `payment.service.vatSatang`
 - **สต็อก** — เปลี่ยน `ingredients.quantity` ผ่าน `inventory.service` เท่านั้น (FOR UPDATE, คำนวณหน่วย 1/1000) และบันทึก `inventory_transactions` ทุกครั้ง
   - ทำเอง: `addTransaction` — `out` ห้ามเกินคงเหลือ, `adjust` รับยอดที่นับได้ (`newBalance`) แล้วบันทึก `quantity = |ส่วนต่าง|`
   - อัตโนมัติ (ผู้ใช้เลือก): `deductForOrder` ตัดตามสูตร `menu_ingredients` × จำนวน **ตอนสร้างออเดอร์** ใน transaction เดียวกัน (type `out`, มี `order_id`)
