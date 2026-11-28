@@ -1,9 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useParams, useSearchParams } from 'react-router-dom';
-import { Printer, Tag, X } from 'lucide-react';
+import { Printer, X } from 'lucide-react';
+import BoxLabel from '../components/BoxLabel';
 import { ErrorState, LoadingState } from '../components/States';
 import { optionText } from '../components/OrderItems';
 import { getReceipt } from '../services/order.service';
+import { LABEL_HEIGHT_MM, LABEL_WIDTH_MM, buildBoxLabels } from '../utils/boxLabels';
 import { formatCurrency, formatDateTime } from '../utils/format';
 import { ORDER_TYPE } from '../utils/labels';
 import { localName, t } from '../i18n';
@@ -14,11 +16,9 @@ const money = (v) => formatCurrency(v).replace(t('฿'), '');
 /**
  * ขนาดกระดาษ (มม.)
  * - ใบเสร็จ: กระดาษม้วนความร้อนกว้าง 57 มม. (พื้นที่พิมพ์จริง ~48 มม.) ความยาวตามเนื้อหา
- * - ฉลากกล่อง: สติ๊กเกอร์ 60 x 40 มม. 1 ดวงต่อ 1 กล่อง
+ * - ฉลากกล่อง: สติ๊กเกอร์ 60 x 40 มม. 1 ดวงต่อ 1 กล่อง (utils/boxLabels.js)
  */
 const RECEIPT_WIDTH_MM = 57;
-const LABEL_WIDTH_MM = 60;
-const LABEL_HEIGHT_MM = 40;
 const PX_TO_MM = 25.4 / 96;
 
 /** สิ่งที่ปุ่ม "พิมพ์" และการพิมพ์อัตโนมัติ (?print=1) จะพิมพ์ — จำค่าที่เลือกไว้ใน localStorage */
@@ -46,18 +46,6 @@ function saveMode(v) {
   }
 }
 
-/** แตกรายการตามจำนวน: 2 × ข้าวกะเพรา -> 2 ฉลาก, เลขกล่องนับต่อกันทั้งออเดอร์ */
-function buildBoxLabels(items) {
-  const total = items.reduce((sum, i) => sum + i.quantity, 0);
-  const labels = [];
-  for (const item of items) {
-    for (let n = 0; n < item.quantity; n += 1) {
-      labels.push({ key: `${item.id}-${n}`, item, no: labels.length + 1, total });
-    }
-  }
-  return labels;
-}
-
 const targetsOf = (m) => (m === 'both' ? ['receipt', 'labels'] : [m === 'labels' ? 'labels' : 'receipt']);
 
 /** ขนาดหน้าของการพิมพ์แต่ละแบบ (คนละขนาดกระดาษ จึงพิมพ์แยกครั้งกัน) */
@@ -71,6 +59,7 @@ function pageCss(target, receiptHeightMm) {
  * ใบเสร็จรับเงิน (กระดาษ 57 มม.) + ฉลากชื่อเมนูติดแต่ละกล่อง (สติ๊กเกอร์ 60x40 มม.)
  * ใบเสร็จกับฉลากเป็นคนละขนาดกระดาษ จึงสั่งพิมพ์แยกกัน 2 ครั้ง (เลือกเครื่องพิมพ์ได้แต่ละครั้ง)
  * เปิดในแท็บใหม่จากหน้าออเดอร์/หลังชำระเงิน — ?print=1 สั่งพิมพ์อัตโนมัติตามโหมดที่เลือกไว้
+ * ?only=receipt|labels บังคับพิมพ์อย่างเดียว (จุดส่งมอบพิมพ์ใบเสร็จผ่าน iframe — สติ๊กเกอร์พิมพ์ที่ครัวแล้ว)
  * ข้อมูลรายการอ่านจาก snapshot ของออเดอร์ (ไม่ใช่ราคาเมนูปัจจุบัน)
  */
 export default function ReceiptPage() {
@@ -104,12 +93,15 @@ export default function ReceiptPage() {
     setReceiptHeightMm(Math.ceil(h) + 2);
   }, [data]);
 
+  const only = ['receipt', 'labels'].includes(params.get('only')) ? params.get('only') : null;
+  const embedded = window.self !== window.top;
+
   useEffect(() => {
     if (data && params.get('print') === '1' && !printed.current) {
       printed.current = true;
-      setTimeout(() => startPrint(targetsOf(mode)), 300);
+      setTimeout(() => startPrint(targetsOf(only || mode)), 300);
     }
-  }, [data, params, mode, startPrint]);
+  }, [data, params, mode, only, startPrint]);
 
   // พิมพ์ทีละรายการในคิว — ไปรายการถัดไปเมื่อปิดหน้าต่างพิมพ์ (afterprint)
   useEffect(() => {
@@ -129,7 +121,7 @@ export default function ReceiptPage() {
   const { shop, order } = data;
   const p = order.payment;
   const printing = queue[0];
-  const boxes = buildBoxLabels(order.items);
+  const boxes = only === 'receipt' ? [] : buildBoxLabels(order.items);
   const orderTypeText =
     order.orderType === 'dine_in' && order.tableNo ? t('ทานที่ร้าน (โต๊ะ {0})', [order.tableNo]) : ORDER_TYPE[order.orderType];
   // ตอนพิมพ์ ซ่อนส่วนที่ไม่ได้พิมพ์รอบนี้
@@ -139,6 +131,7 @@ export default function ReceiptPage() {
     <div className="min-h-full bg-slate-100 py-6 print:bg-white print:py-0">
       <style>{`@media print { ${pageCss(printing, receiptHeightMm)} html, body { margin: 0; } }`}</style>
 
+      {!embedded && !only && (
       <div className="mx-auto mb-3 flex max-w-[80mm] flex-col gap-1 px-2 print:hidden">
         {PRINT_MODES.map((m) => (
           <label key={m.value} className="flex cursor-pointer items-center gap-2 text-sm">
@@ -150,15 +143,18 @@ export default function ReceiptPage() {
           <p className="text-xs text-slate-500">{t('พิมพ์แยก 2 ครั้ง: ใบเสร็จ (57 มม.) แล้วตามด้วยฉลาก (60x40 มม.) — เลือกเครื่องพิมพ์ให้ตรงแต่ละครั้ง')}</p>
         )}
       </div>
+      )}
 
-      <div className="mx-auto mb-4 flex max-w-[80mm] flex-wrap justify-center gap-2 print:hidden">
-        <button className="btn-primary" onClick={() => startPrint(targetsOf(mode))}>
-          <Printer size={16} /> {t('พิมพ์')}
-        </button>
-        <button className="btn-outline" onClick={() => window.close()}>
-          <X size={16} /> {t('ปิด')}
-        </button>
-      </div>
+      {!embedded && (
+        <div className="mx-auto mb-4 flex max-w-[80mm] flex-wrap justify-center gap-2 print:hidden">
+          <button className="btn-primary" onClick={() => startPrint(targetsOf(only || mode))}>
+            <Printer size={16} /> {t('พิมพ์')}
+          </button>
+          <button className="btn-outline" onClick={() => window.close()}>
+            <X size={16} /> {t('ปิด')}
+          </button>
+        </div>
+      )}
 
       <section className={hideWhen('receipt')}>
         <p className="mb-1 text-center text-xs text-slate-500 print:hidden">{t('ใบเสร็จ (')}{RECEIPT_WIDTH_MM} {t('มม.)')}</p>
@@ -225,44 +221,19 @@ export default function ReceiptPage() {
         </article>
       </section>
 
-      <section className={`mt-6 print:mt-0 ${hideWhen('labels')}`}>
-        <p className="mb-1 text-center text-xs text-slate-500 print:hidden">
-          {t('ฉลากกล่อง')} {boxes.length} {t('ดวง (')}{LABEL_WIDTH_MM}x{LABEL_HEIGHT_MM} {t('มม.)')}
-        </p>
-        <div className="flex flex-col items-center gap-3 print:block">
-          {boxes.map((box) => (
-            <BoxLabel key={box.key} box={box} order={order} orderTypeText={orderTypeText} />
-          ))}
-        </div>
-      </section>
+      {boxes.length > 0 && (
+        <section className={`mt-6 print:mt-0 ${hideWhen('labels')}`}>
+          <p className="mb-1 text-center text-xs text-slate-500 print:hidden">
+            {t('ฉลากกล่อง')} {boxes.length} {t('ดวง (')}{LABEL_WIDTH_MM}x{LABEL_HEIGHT_MM} {t('มม.)')}
+          </p>
+          <div className="flex flex-col items-center gap-3 print:block">
+            {boxes.map((box) => (
+              <BoxLabel key={box.key} box={box} order={order} />
+            ))}
+          </div>
+        </section>
+      )}
     </div>
-  );
-}
-
-/**
- * ฉลากติดกล่อง 1 ดวง = 1 กล่อง ขนาดพอดีสติ๊กเกอร์ 60x40 มม. (ตัดข้อความที่ยาวเกินแทนการล้นไปดวงถัดไป)
- * อ่านจาก snapshot ของรายการ (ชื่อเมนู/ตัวเลือก/หมายเหตุ ณ ตอนสั่ง)
- */
-function BoxLabel({ box, order, orderTypeText }) {
-  const { item, no, total } = box;
-  const detail = [item.options.length > 0 && optionText(item.options), item.note && `* ${item.note}`].filter(Boolean);
-  return (
-    <article className="box-border flex h-[40mm] w-[60mm] flex-col overflow-hidden border border-dashed border-slate-400 bg-white px-[2.5mm] py-[2mm] text-[10px] leading-tight text-black print:break-after-page print:border-0 print:last:break-after-auto">
-      <div className="flex justify-between gap-1">
-        <span className="font-semibold">#{order.orderNo}</span>
-        <span className="shrink-0 font-bold">
-          <Tag size={9} className="mr-0.5 inline" />
-          {no}/{total}
-        </span>
-      </div>
-      <div className="truncate">{orderTypeText}</div>
-      <hr className="my-[1mm] border-t border-dashed border-black/60" />
-      <div className="flex flex-1 flex-col justify-center text-center">
-        <p className="line-clamp-2 text-[16px] font-bold leading-tight">{localName(item, 'menuName')}</p>
-        {detail.length > 0 && <p className="mt-0.5 line-clamp-2 text-[11px] font-semibold">{detail.join(' ')}</p>}
-      </div>
-      {order.note && <p className="truncate border-t border-dashed border-black/60 pt-[0.5mm] text-[9px]">{t('หมายเหตุ:')} {order.note}</p>}
-    </article>
   );
 }
 

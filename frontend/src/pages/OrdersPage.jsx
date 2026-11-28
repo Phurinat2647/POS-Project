@@ -270,6 +270,7 @@ function OrderDetailModal({ order, busy, onClose, onChangeStatus, onPay }) {
     [t('สั่งเมื่อ'), order.createdAt],
     [t('เริ่มทำ'), order.preparingAt],
     [t('เสร็จ'), order.completedAt],
+    [t('ส่งมอบ'), order.deliveredAt],
     [t('ยกเลิก#status'), order.cancelledAt],
     [t('ชำระเงิน'), order.paidAt],
   ].filter(([, tx]) => tx);

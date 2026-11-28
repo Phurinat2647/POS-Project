@@ -10,6 +10,7 @@ export const ORDER_STATUS = {
   pending: { label: t('รอทำ'), className: 'bg-amber-100 text-amber-800' },
   preparing: { label: t('กำลังทำ'), className: 'bg-blue-100 text-blue-800' },
   completed: { label: t('เสร็จแล้ว'), className: 'bg-green-100 text-green-800' },
+  delivered: { label: t('ส่งมอบแล้ว'), className: 'bg-teal-100 text-teal-800' },
   cancelled: { label: t('ยกเลิก#status'), className: 'bg-slate-200 text-slate-600' },
 };
 
@@ -20,7 +21,10 @@ export const PAYMENT_STATUS = {
 
 export const ORDER_TYPE = { dine_in: t('ทานที่ร้าน'), takeaway: t('กลับบ้าน') };
 
-/** ขั้นถัดไปของออเดอร์ในครัว (ตรงกับ TRANSITIONS ใน backend order.service) */
+/**
+ * ขั้นถัดไปของออเดอร์ในครัว (ตรงกับ TRANSITIONS ใน backend order.service)
+ * completed -> delivered ทำที่หน้า "ส่งมอบ" (/handover) เท่านั้น — ต้องชำระเงินแล้ว (ครัวส่งมอบไม่ได้)
+ */
 export const ORDER_NEXT_STEP = {
   pending: { status: 'preparing', label: t('เริ่มทำ') },
   preparing: { status: 'completed', label: t('เสร็จแล้ว#action') },

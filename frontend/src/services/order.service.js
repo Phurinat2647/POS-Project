@@ -31,5 +31,8 @@ export const getReceipt = async (id) => (await api.get(`/orders/${id}/receipt`))
 export const openReceipt = (id, { print = true } = {}) =>
   window.open(`/orders/${id}/receipt${print ? '?print=1' : ''}`, '_blank', 'noopener');
 
-/** status: preparing | completed | cancelled */
+/** สแกนบาร์โค้ดสติ๊กเกอร์ "<เลขออเดอร์>-<กล่อง>" -> { order, box, boxes } */
+export const lookupOrderByCode = async (code) => (await api.get('/orders/lookup', { params: { code } })).data.data;
+
+/** status: preparing | completed | delivered | cancelled */
 export const updateOrderStatus = async (id, status) => (await api.patch(`/orders/${id}/status`, { status })).data;

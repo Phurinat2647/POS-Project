@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { ChefHat, Clock, Loader2, Printer, RefreshCw, ShoppingBag, Utensils, Volume2, VolumeX } from 'lucide-react';
-import { printKitchenTicket } from '../utils/kitchenTicket';
+import { ChefHat, Clock, Loader2, Printer, RefreshCw, ShoppingBag, Tags, Utensils, Volume2, VolumeX } from 'lucide-react';
+import { loadAutoBoxLabels, printBoxLabels, printKitchenTicket, saveAutoBoxLabels } from '../utils/kitchenTicket';
 import PageHeader from '../components/PageHeader';
 import OrderItems from '../components/OrderItems';
 import { ErrorState, LoadingState } from '../components/States';
@@ -72,7 +72,7 @@ function applyOrder(queue, order) {
   const active = queue.active.filter((o) => o.id !== order.id);
   let recent = queue.recentCompleted.filter((o) => o.id !== order.id);
   if (order.status === 'pending' || order.status === 'preparing') active.push(order);
-  if (order.status === 'completed') recent = [order, ...recent].slice(0, RECENT_LIMIT);
+  if (order.status === 'completed' || order.status === 'delivered') recent = [order, ...recent].slice(0, RECENT_LIMIT);
   return { active: active.sort(byCreated), recentCompleted: recent };
 }
 
@@ -83,6 +83,7 @@ export default function KitchenPage() {
   const [error, setError] = useState(null);
   const [busyId, setBusyId] = useState(null);
   const [sound, setSound] = useState(readSoundPref);
+  const [autoLabels, setAutoLabels] = useState(loadAutoBoxLabels); // พิมพ์สติ๊กเกอร์อัตโนมัติเมื่อออเดอร์เข้า (จำต่อเครื่อง)
   const [highlight, setHighlight] = useState(() => new Set());
   const beep = useBeep();
   const now = useNow();
@@ -112,6 +113,7 @@ export default function KitchenPage() {
       return next;
     }), 8000);
     if (sound) beep();
+    if (autoLabels) printBoxLabels(order.id);
   });
   useSocketEvent('order:updated', ({ order }) => setQueue((q) => q && applyOrder(q, order)));
   useSocketReconnect(() => load({ silent: true }));
@@ -121,6 +123,12 @@ export default function KitchenPage() {
     setSound(next);
     saveSoundPref(next);
     if (next) beep(); // ปลดล็อกเสียงของเบราว์เซอร์ด้วยการแตะ
+  };
+
+  const toggleAutoLabels = () => {
+    const next = !autoLabels;
+    setAutoLabels(next);
+    saveAutoBoxLabels(next);
   };
 
   const advance = async (order) => {
@@ -152,6 +160,14 @@ export default function KitchenPage() {
         description={t('ออเดอร์อัปเดตอัตโนมัติแบบ Real-time — เรียงจากออเดอร์ที่รอนานที่สุด')}
         actions={
           <>
+            <button
+              className={autoLabels ? 'btn-primary' : 'btn-outline'}
+              onClick={toggleAutoLabels}
+              aria-pressed={autoLabels}
+              title={t('พิมพ์สติ๊กเกอร์กล่อง (มีบาร์โค้ด) อัตโนมัติเมื่อมีออเดอร์ใหม่ — ตั้งค่าเฉพาะเครื่องนี้')}
+            >
+              <Tags size={16} /> {autoLabels ? t('พิมพ์สติ๊กเกอร์อัตโนมัติ: เปิด') : t('พิมพ์สติ๊กเกอร์อัตโนมัติ: ปิด')}
+            </button>
             <button className="btn-outline" onClick={toggleSound} title={t('เสียงแจ้งเตือนออเดอร์ใหม่')}>
               {sound ? <Volume2 size={16} /> : <VolumeX size={16} />} {sound ? t('เปิดเสียง') : t('ปิดเสียง')}
             </button>
@@ -237,6 +253,15 @@ function KitchenCard({ order, now, busy, isNew = false, onAdvance }) {
           <span className={`badge ${waitTone}`}>
             <Clock size={12} /> {waitedMin} {t('นาที')}
           </span>
+          <button
+            type="button"
+            className="btn-icon h-8 w-8"
+            onClick={() => printBoxLabels(order.id)}
+            title={t('พิมพ์สติ๊กเกอร์กล่อง')}
+            aria-label={t('พิมพ์สติ๊กเกอร์กล่อง')}
+          >
+            <Tags size={16} />
+          </button>
           <button
             type="button"
             className="btn-icon h-8 w-8"

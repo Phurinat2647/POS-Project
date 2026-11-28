@@ -5,7 +5,7 @@ const { emitEvent } = require('../config/socket');
 const menuAvailability = require('../services/menuAvailability.service');
 
 const ORDER_TYPES = ['dine_in', 'takeaway'];
-const STATUSES = ['pending', 'preparing', 'completed', 'cancelled'];
+const STATUSES = ['pending', 'preparing', 'completed', 'delivered', 'cancelled'];
 const PAYMENT_STATUSES = ['unpaid', 'paid'];
 
 const MAX_ITEMS = 50;
@@ -98,8 +98,16 @@ async function create(req, res) {
 const STATUS_MESSAGE = {
   preparing: 'เริ่มทำออเดอร์แล้ว',
   completed: 'ออเดอร์เสร็จแล้ว',
+  delivered: 'ส่งมอบออเดอร์แล้ว',
   cancelled: 'ยกเลิกออเดอร์แล้ว',
 };
+
+/** GET /orders/lookup?code=20261128-0001-2 — สแกนบาร์โค้ดสติ๊กเกอร์ที่จุดส่งมอบ */
+async function lookup(req, res) {
+  const code = v.requiredString(req.query.code, 'บาร์โค้ด', 30);
+  const data = await service.lookupByCode(code);
+  res.json({ success: true, data });
+}
 
 async function updateStatus(req, res) {
   const status = v.oneOf(req.body?.status, Object.keys(STATUS_MESSAGE), 'สถานะ');
@@ -109,4 +117,4 @@ async function updateStatus(req, res) {
   res.json({ success: true, data: order, message: `${STATUS_MESSAGE[status]} (${order.orderNo})` });
 }
 
-module.exports = { list, kitchenQueue, getOne, create, updateStatus };
+module.exports = { list, kitchenQueue, lookup, getOne, create, updateStatus };

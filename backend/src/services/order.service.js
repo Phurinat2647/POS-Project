@@ -10,18 +10,24 @@ const inventoryService = require('./inventory.service');
  * - ตัดสต็อกตามสูตรเมนูใน transaction เดียวกับการสร้างออเดอร์ และคืนสต็อกเมื่อยกเลิก
  */
 
-const STATUS_LABEL = { pending: 'รอทำ', preparing: 'กำลังทำ', completed: 'เสร็จแล้ว', cancelled: 'ยกเลิก' };
+const STATUS_LABEL = { pending: 'รอทำ', preparing: 'กำลังทำ', completed: 'เสร็จแล้ว', delivered: 'ส่งมอบแล้ว', cancelled: 'ยกเลิก' };
 
 /** สถานะที่เปลี่ยนไปได้จากแต่ละสถานะ */
 const TRANSITIONS = {
   pending: ['preparing', 'cancelled'],
   preparing: ['completed', 'cancelled'],
-  completed: [],
+  completed: ['delivered'], // ส่งมอบ: แคชเชียร์/ผู้ดูแล สแกนบาร์โค้ดสติ๊กเกอร์ที่จุดส่งมอบ (ต้องชำระเงินแล้ว)
+  delivered: [],
   cancelled: [],
 };
 
 /** คอลัมน์เวลาที่บันทึกเมื่อเปลี่ยนเป็นสถานะนั้น (ค่าคงที่ — ไม่ได้มาจาก input) */
-const STATUS_TIME_COLUMN = { preparing: 'preparing_at', completed: 'completed_at', cancelled: 'cancelled_at' };
+const STATUS_TIME_COLUMN = {
+  preparing: 'preparing_at',
+  completed: 'completed_at',
+  delivered: 'delivered_at',
+  cancelled: 'cancelled_at',
+};
 
 // ---------------------------------------------------------------------
 // แปลงข้อมูล
@@ -47,6 +53,8 @@ const toOrder = (r) => ({
   updatedAt: r.updated_at,
   preparingAt: r.preparing_at,
   completedAt: r.completed_at,
+  deliveredAt: r.delivered_at ?? null,
+  deliveredByName: r.delivered_by_name ?? null,
   cancelledAt: r.cancelled_at,
   paidAt: r.paid_at,
   payment: r.payment_id
@@ -78,13 +86,14 @@ const toItem = (r) => ({
 });
 
 const ORDER_SELECT = `
-  SELECT o.*, u.full_name AS cashier_name,
+  SELECT o.*, u.full_name AS cashier_name, du.full_name AS delivered_by_name,
          (SELECT COALESCE(SUM(oi.quantity), 0) FROM order_items oi WHERE oi.order_id = o.id) AS item_count,
          p.id AS payment_id, p.method AS payment_method, p.amount AS payment_amount,
          p.received_amount AS payment_received, p.change_amount AS payment_change,
          p.reference_no AS payment_reference, pu.full_name AS payment_received_by
     FROM orders o
     LEFT JOIN users u ON u.id = o.cashier_id
+    LEFT JOIN users du ON du.id = o.delivered_by
     LEFT JOIN payments p ON p.order_id = o.id
     LEFT JOIN users pu ON pu.id = p.received_by`;
 
@@ -173,7 +182,7 @@ async function listKitchenQueue({ recentLimit = 12 } = {}) {
     `${ORDER_SELECT} WHERE o.status IN ('pending', 'preparing') ORDER BY o.created_at, o.id`
   );
   const [done] = await pool.query(
-    `${ORDER_SELECT} WHERE o.status = 'completed' AND o.completed_at >= CURDATE()
+    `${ORDER_SELECT} WHERE o.status IN ('completed', 'delivered') AND o.completed_at >= CURDATE()
       ORDER BY o.completed_at DESC, o.id DESC LIMIT ?`,
     [recentLimit]
   );
@@ -373,9 +382,14 @@ async function updateStatus(id, nextStatus, user) {
       if (user.role === 'kitchen') throw ApiError.forbidden('พนักงานครัวไม่มีสิทธิ์ยกเลิกออเดอร์');
       if (row.payment_status === 'paid') throw ApiError.conflict('ออเดอร์ที่ชำระเงินแล้วไม่สามารถยกเลิกได้');
     }
+    if (nextStatus === 'delivered') {
+      if (user.role === 'kitchen') throw ApiError.forbidden('พนักงานครัวไม่มีสิทธิ์ส่งมอบออเดอร์');
+      if (row.payment_status !== 'paid') throw ApiError.conflict('ออเดอร์นี้ยังไม่ได้ชำระเงิน — กรุณาชำระเงินก่อนส่งมอบ');
+    }
 
     const timeColumn = STATUS_TIME_COLUMN[nextStatus];
     await conn.query(`UPDATE orders SET status = ?, ${timeColumn} = NOW() WHERE id = ?`, [nextStatus, id]);
+    if (nextStatus === 'delivered') await conn.query('UPDATE orders SET delivered_by = ? WHERE id = ?', [user.id, id]);
     if (nextStatus === 'cancelled') {
       await inventoryService.restockForOrder(conn, { orderId: id, orderNo: row.order_no, userId: user.id });
     }
@@ -383,4 +397,28 @@ async function updateStatus(id, nextStatus, user) {
   });
 }
 
-module.exports = { list, listKitchenQueue, getById, create, updateStatus, STATUS_LABEL };
+/**
+ * รหัสบาร์โค้ดบนสติ๊กเกอร์กล่อง: "<เลขออเดอร์>-<ลำดับกล่อง>" เช่น 20261128-0001-2 (ไม่มีลำดับกล่อง = ทั้งออเดอร์)
+ * คืน { orderNo, box } หรือ null ถ้ารูปแบบไม่ถูกต้อง
+ */
+function parseBoxCode(code) {
+  const m = /^(\d{8}-\d{4})(?:-(\d{1,3}))?$/.exec(String(code ?? '').trim());
+  if (!m) return null;
+  return { orderNo: m[1], box: m[2] ? Number(m[2]) : null };
+}
+
+/** ค้นหาออเดอร์จากบาร์โค้ดสติ๊กเกอร์ — คืน { order, box, boxes } (box = ลำดับกล่องที่สแกน หรือ null) */
+async function lookupByCode(code) {
+  const parsed = parseBoxCode(code);
+  if (!parsed) throw ApiError.badRequest('รูปแบบบาร์โค้ดไม่ถูกต้อง');
+  const [rows] = await pool.query(`${ORDER_SELECT} WHERE o.order_no = ?`, [parsed.orderNo]);
+  if (!rows[0]) throw ApiError.notFound(`ไม่พบออเดอร์ ${parsed.orderNo}`);
+  const [order] = await attachItems([toOrder(rows[0])]);
+  const boxes = order.items.reduce((sum, i) => sum + i.quantity, 0);
+  if (parsed.box !== null && (parsed.box < 1 || parsed.box > boxes)) {
+    throw ApiError.badRequest(`ออเดอร์ ${order.orderNo} มีเพียง ${boxes} กล่อง`);
+  }
+  return { order, box: parsed.box, boxes };
+}
+
+module.exports = { list, listKitchenQueue, getById, create, updateStatus, lookupByCode, parseBoxCode, STATUS_LABEL };
