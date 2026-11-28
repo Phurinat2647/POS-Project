@@ -1,49 +1,53 @@
 import { t } from '../i18n';
+import { printInFrame } from './printFrame';
+import { LABEL_HEIGHT_MM, LABEL_WIDTH_MM } from './boxLabels';
+
 /**
- * พิมพ์ใบสั่งครัว (80x80 มม.) โดยไม่ต้องเปิดแท็บใหม่
- * โหลดหน้า /orders/:id/kitchen-ticket?print=1 ใน iframe ที่ซ่อนไว้ — หน้านั้นสั่ง window.print() เอง
- * หน้าต่างพิมพ์จึงขึ้นทับหน้าปัจจุบัน (POS/ครัว/ออเดอร์) แล้วลบ iframe ทิ้งเมื่อพิมพ์/ยกเลิกเสร็จ
+ * งานพิมพ์ของออเดอร์ผ่าน iframe ซ่อน (utils/printFrame.js) — เข้าคิวพิมพ์ทีละงาน
+ * - ใบสั่งครัว 80x80 มม.            /orders/:id/kitchen-ticket?print=1
+ * - สติ๊กเกอร์กล่อง 60x40 มม. + บาร์โค้ด  /orders/:id/labels?print=1
+ * - ใบเสร็จ 57 มม. (เฉพาะใบเสร็จ)      /orders/:id/receipt?print=1&only=receipt
  */
 const AUTO_KEY = 'food_pos_auto_kitchen_ticket';
-const FRAME_TIMEOUT_MS = 5 * 60 * 1000;
+const AUTO_LABELS_KEY = 'food_pos_auto_box_labels';
 
 export function printKitchenTicket(orderId) {
-  const frame = document.createElement('iframe');
-  frame.title = t('ใบสั่งครัว');
-  frame.setAttribute('aria-hidden', 'true');
-  // ต้องมีขนาดจริงให้จัดหน้าได้ แต่อยู่นอกจอ (display:none จะพิมพ์ไม่ได้)
-  Object.assign(frame.style, { position: 'fixed', left: '-10000px', top: '0', width: '80mm', height: '80mm', border: '0' });
-
-  let timer;
-  const cleanup = () => {
-    clearTimeout(timer);
-    frame.remove();
-  };
-  frame.addEventListener('load', () => {
-    try {
-      frame.contentWindow.addEventListener('afterprint', () => setTimeout(cleanup, 100), { once: true });
-    } catch {
-      /* ไม่ควรเกิด (origin เดียวกัน) — ใช้ timeout ลบแทน */
-    }
-  });
-  timer = setTimeout(cleanup, FRAME_TIMEOUT_MS);
-  frame.src = `/orders/${orderId}/kitchen-ticket?print=1`;
-  document.body.appendChild(frame);
+  printInFrame(`/orders/${orderId}/kitchen-ticket?print=1`, { title: t('ใบสั่งครัว') });
 }
 
-/** ตั้งค่า "พิมพ์ใบสั่งครัวอัตโนมัติเมื่อส่งออเดอร์" ของเครื่องนี้ (ค่าเริ่มต้น: เปิด) */
-export function loadAutoKitchenTicket() {
+export function printBoxLabels(orderId) {
+  printInFrame(`/orders/${orderId}/labels?print=1`, {
+    title: t('สติ๊กเกอร์กล่อง'),
+    width: `${LABEL_WIDTH_MM}mm`,
+    height: `${LABEL_HEIGHT_MM}mm`,
+  });
+}
+
+export function printReceiptOnly(orderId) {
+  printInFrame(`/orders/${orderId}/receipt?print=1&only=receipt`, { title: t('ใบเสร็จ'), width: '57mm', height: '200mm' });
+}
+
+function readFlag(key, fallback) {
   try {
-    return localStorage.getItem(AUTO_KEY) !== '0';
+    const v = localStorage.getItem(key);
+    return v === null ? fallback : v === '1';
   } catch {
-    return true;
+    return fallback;
   }
 }
 
-export function saveAutoKitchenTicket(on) {
+function writeFlag(key, on) {
   try {
-    localStorage.setItem(AUTO_KEY, on ? '1' : '0');
+    localStorage.setItem(key, on ? '1' : '0');
   } catch {
     /* storage ไม่พร้อมใช้งาน — ใช้ค่าเฉพาะครั้งนี้ */
   }
 }
+
+/** ตั้งค่า "พิมพ์ใบสั่งครัวอัตโนมัติเมื่อส่งออเดอร์" ของเครื่องนี้ (ค่าเริ่มต้น: เปิด) */
+export const loadAutoKitchenTicket = () => readFlag(AUTO_KEY, true);
+export const saveAutoKitchenTicket = (on) => writeFlag(AUTO_KEY, on);
+
+/** ตั้งค่า "พิมพ์สติ๊กเกอร์อัตโนมัติเมื่อมีออเดอร์ใหม่" ของเครื่องนี้ (ค่าเริ่มต้น: ปิด — เปิดเฉพาะเครื่องที่ต่อเครื่องพิมพ์สติ๊กเกอร์) */
+export const loadAutoBoxLabels = () => readFlag(AUTO_LABELS_KEY, false);
+export const saveAutoBoxLabels = (on) => writeFlag(AUTO_LABELS_KEY, on);

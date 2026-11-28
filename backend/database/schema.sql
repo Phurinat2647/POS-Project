@@ -165,7 +165,7 @@ CREATE TABLE `orders` (
   `order_no`       VARCHAR(20) NOT NULL,
   `order_type`     ENUM('dine_in','takeaway') NOT NULL DEFAULT 'dine_in',
   `table_no`       VARCHAR(20) NULL,
-  `status`         ENUM('pending','preparing','completed','cancelled') NOT NULL DEFAULT 'pending',
+  `status`         ENUM('pending','preparing','completed','delivered','cancelled') NOT NULL DEFAULT 'pending' COMMENT 'delivered = ส่งมอบให้ลูกค้าแล้ว (หลังครัวทำเสร็จ)',
   `payment_status` ENUM('unpaid','paid') NOT NULL DEFAULT 'unpaid',
   `subtotal`       DECIMAL(12,2) NOT NULL DEFAULT 0.00,
   `discount`       DECIMAL(12,2) NOT NULL DEFAULT 0.00,
@@ -178,6 +178,8 @@ CREATE TABLE `orders` (
   `updated_at`     DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   `preparing_at`   DATETIME NULL,
   `completed_at`   DATETIME NULL,
+  `delivered_at`   DATETIME NULL,
+  `delivered_by`   INT UNSIGNED NULL COMMENT 'ผู้ส่งมอบ',
   `cancelled_at`   DATETIME NULL,
   `paid_at`        DATETIME NULL,
   PRIMARY KEY (`id`),
@@ -186,7 +188,10 @@ CREATE TABLE `orders` (
   KEY `idx_orders_status` (`status`, `created_at`),
   KEY `idx_orders_payment` (`payment_status`, `paid_at`),
   KEY `idx_orders_cashier` (`cashier_id`),
+  KEY `idx_orders_delivered_by` (`delivered_by`),
   CONSTRAINT `fk_orders_cashier` FOREIGN KEY (`cashier_id`) REFERENCES `users` (`id`)
+    ON UPDATE CASCADE ON DELETE SET NULL,
+  CONSTRAINT `fk_orders_delivered_by` FOREIGN KEY (`delivered_by`) REFERENCES `users` (`id`)
     ON UPDATE CASCADE ON DELETE SET NULL,
   CONSTRAINT `chk_orders_amounts` CHECK (`subtotal` >= 0 AND `discount` >= 0 AND `total` >= 0),
   CONSTRAINT `chk_orders_vat` CHECK (`vat_rate` >= 0 AND `vat_rate` <= 30 AND `vat_amount` >= 0)

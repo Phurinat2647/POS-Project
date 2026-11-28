@@ -93,7 +93,11 @@ backend/scripts/db-migrate.js           — migration แบบ idempotent ส�
 - **เลขออเดอร์** สร้างจาก `order_sequences` ภายใน transaction:
   `INSERT INTO order_sequences (seq_date,last_no) VALUES (CURDATE(),1) ON DUPLICATE KEY UPDATE last_no = LAST_INSERT_ID(last_no + 1)` รูปแบบ `YYYYMMDD-NNNN`
   (หลัง INSERT อ่าน `last_no` กลับด้วย `SELECT ... WHERE seq_date = ?` — อย่าพึ่ง `LAST_INSERT_ID()` เพราะแถวแรกของวันไม่ได้ตั้งค่า) ดู `order.service.js`
-- **สถานะออเดอร์** — pending → preparing → completed, ยกเลิกได้จาก pending/preparing เท่านั้น (ครัวยกเลิกไม่ได้, ชำระแล้วยกเลิกไม่ได้)
+- **สถานะออเดอร์** — pending → preparing → completed → delivered, ยกเลิกได้จาก pending/preparing เท่านั้น (ครัวยกเลิกไม่ได้, ชำระแล้วยกเลิกไม่ได้)
+  `delivered` (ส่งมอบ) ทำที่หน้า `/handover` โดย admin/cashier เท่านั้น ต้อง `payment_status='paid'` บันทึก `delivered_at`/`delivered_by`
+- **Flow ของร้าน (SUNMI V3)**: แคชเชียร์รับออเดอร์+ชำระเงิน → ครัวพิมพ์สติ๊กเกอร์กล่องมีบาร์โค้ด → จุดส่งมอบสแกนบาร์โค้ด → ส่งมอบ + พิมพ์ใบเสร็จ
+  บาร์โค้ด Code128 = `<เลขออเดอร์>-<ลำดับกล่อง>` (เช่น `20261128-0001-2`) — `parseBoxCode` ใน backend `order.service` ต้องตรงกับ `utils/boxLabels.js`;
+  `GET /orders/lookup?code=` (admin/cashier) คืน `{ order, box, boxes }`
   ใช้ `SELECT ... FOR UPDATE` ใน transaction; `TRANSITIONS` ใน backend ต้องตรงกับ `ORDER_NEXT_STEP`/`canCancelOrder` ใน `frontend/src/utils/labels.js`
 - **Socket events**: `order:created`, `order:updated` (`{ order }`), `menu:updated` (`{ menu }`) — ส่งไปทุก role
 - **Payment** — 1 ออเดอร์ชำระได้ครั้งเดียว (`UNIQUE(order_id)`), ต้องอัปเดต `orders.payment_status='paid'` และ `paid_at` ใน transaction เดียวกัน
@@ -128,7 +132,7 @@ backend/scripts/db-migrate.js           — migration แบบ idempotent ส�
 - 15 ตาราง: roles, users, categories, menus, menu_options, order_sequences, orders, order_items, order_item_options, payments, ingredients, inventory_transactions, menu_ingredients, option_ingredients, settings
 - `menu_options` ผูกได้ 3 ระดับ: `menu_id` (เมนูเดียว) / `category_id` (ทั้งหมวด) / ทั้งคู่ NULL (ทุกเมนู) — ห้ามกำหนดทั้งสองค่าพร้อมกัน (CHECK)
   `option_type`: `size` เลือกได้ 1 อย่าง (มี `is_default`), `topping` เลือกได้หลายอย่าง
-- สถานะ: `orders.status` = pending/preparing/completed/cancelled, `orders.payment_status` = unpaid/paid, `menus.status` = available/sold_out
+- สถานะ: `orders.status` = pending/preparing/completed/delivered/cancelled, `orders.payment_status` = unpaid/paid, `menus.status` = available/sold_out
 - `inventory_transactions.type` = in/out/adjust, `quantity` เป็นค่าบวกเสมอ, บันทึก `balance_after` ทุกครั้ง (ไม่ติดลบ), `order_id` = รายการอัตโนมัติจากออเดอร์
 - ถ้าแก้ schema ต้องแก้ทั้ง `schema.sql`, `seed.sql` (ถ้ากระทบ), และ `EXPECTED_TABLES` ใน `routes/health.routes.js`
 - ต้องรองรับทั้ง MariaDB 10.4 และ MySQL 8 — หลีกเลี่ยงฟีเจอร์ที่มีแค่ฝั่งเดียว
@@ -156,6 +160,9 @@ backend/scripts/db-migrate.js           — migration แบบ idempotent ส�
 - หน้าที่มี: `/login`, `/` (Dashboard สำหรับ admin/cashier, kitchen ถูก redirect ไป `/kitchen`), `/pos`, `/orders` (admin/cashier), `/kitchen` (ทุก role),
   `/inventory` (admin/kitchen), `/reports` (admin, lazy), `/settings` (admin), `/orders/:id/receipt` (admin/cashier — นอก MainLayout สำหรับพิมพ์, `?print=1`; ใบเสร็จกระดาษ 57 มม. ความสูงวัดจากเนื้อหา + ฉลากกล่อง 60x40 มม. 1 ดวง/กล่อง พิมพ์แยกรอบด้วยคิว `afterprint`),
   `/orders/:id/kitchen-ticket` (ทุก role — ใบสั่งครัว 80x80 มม. ไม่มีราคา; `utils/kitchenTicket.js` พิมพ์ผ่าน iframe ซ่อน, POS พิมพ์อัตโนมัติเมื่อส่งออเดอร์ ปิดได้ต่อเครื่อง),
+  `/orders/:id/labels` (ทุก role — สติ๊กเกอร์กล่อง 60x40 มม. + บาร์โค้ด `components/BoxLabel.jsx`/`Barcode.jsx` (jsbarcode); หน้าครัวพิมพ์อัตโนมัติเมื่อ `order:created` ถ้าเปิดสวิตช์ต่อเครื่อง — ค่าเริ่มต้นปิด),
+  `/handover` (admin/cashier — สแกนบาร์โค้ดด้วยเครื่องสแกนแบบคีย์บอร์ด/พิมพ์เลขคิว/กล้อง `BarcodeDetector` (ต้อง HTTPS), แปลงอักษรแป้นไทยเป็นตัวเลขใน `normalizeScan`, ส่งมอบแล้วพิมพ์ใบเสร็จ `?only=receipt`),
+  งานพิมพ์ iframe ทั้งหมดเข้าคิวทีละงานใน `utils/printFrame.js`,
   `/menus` (ทุก role; แก้ไขได้เฉพาะ admin; การ์ดแสดงต้นทุน/กำไรต่อจานเฉพาะ admin — `GET /menus` แนบ `costing` = สูตร × ต้นทุนวัตถุดิบ + `menus.extra_cost` ที่พิมพ์เองบนการ์ด (`PATCH /menus/:id/extra-cost`); สูตรวัตถุดิบ `components/RecipeModal.jsx` — admin แก้ (พิมพ์ชื่อเองได้ ชื่อใหม่ส่ง `{ name, unit }` ให้ `recipe.service` สร้างวัตถุดิบใน transaction เดียว), kitchen ดู), `/categories`, `/menu-options`,
   `/users` (admin), `/reports/print?from&to` (admin — นอก MainLayout, A4 สำหรับ "บันทึกเป็น PDF", lazy), `/system-status` (admin), `/change-password`, `/forbidden`
 - ตะกร้า POS จำไว้ใน `sessionStorage` (`utils/posCart.js`, ผูก userId) — เปลี่ยนหน้า/refresh ยังอยู่, ปิดแท็บหาย, `logout`/401 ใน AuthContext เรียก `clearPosCart()`; โหลด catalog แล้วอัปเดตชื่อ/ราคาในตะกร้าด้วย `buildLine`

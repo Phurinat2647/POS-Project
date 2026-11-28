@@ -188,6 +188,31 @@ const MIGRATIONS = [
       if (r.affectedRows) console.log(`  + เพิ่มค่าตั้งต้น VAT ใน settings ${r.affectedRows} คีย์`);
     },
   },
+  {
+    name: 'สถานะส่งมอบ (orders.status = delivered, delivered_at, delivered_by)',
+    async run() {
+      const [[col]] = await pool.query(
+        'SELECT COLUMN_TYPE AS type FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = ? AND TABLE_NAME = ? AND COLUMN_NAME = ?',
+        [env.db.database, 'orders', 'status']
+      );
+      if (!col.type.includes("'delivered'")) {
+        await pool.query(
+          "ALTER TABLE `orders` MODIFY COLUMN `status` ENUM('pending','preparing','completed','delivered','cancelled') NOT NULL DEFAULT 'pending' COMMENT 'delivered = ส่งมอบให้ลูกค้าแล้ว (หลังครัวทำเสร็จ)'"
+        );
+        console.log('  + เพิ่มสถานะ delivered ใน orders.status');
+      }
+      if (!(await columnExists('orders', 'delivered_at'))) {
+        await pool.query('ALTER TABLE `orders` ADD COLUMN `delivered_at` DATETIME NULL AFTER `completed_at`');
+        console.log('  + เพิ่ม orders.delivered_at');
+      }
+      if (!(await columnExists('orders', 'delivered_by'))) {
+        await pool.query(
+          "ALTER TABLE `orders` ADD COLUMN `delivered_by` INT UNSIGNED NULL COMMENT 'ผู้ส่งมอบ' AFTER `delivered_at`, ADD KEY `idx_orders_delivered_by` (`delivered_by`), ADD CONSTRAINT `fk_orders_delivered_by` FOREIGN KEY (`delivered_by`) REFERENCES `users` (`id`) ON UPDATE CASCADE ON DELETE SET NULL"
+        );
+        console.log('  + เพิ่ม orders.delivered_by');
+      }
+    },
+  },
 ];
 
 (async () => {

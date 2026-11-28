@@ -17,6 +17,8 @@ import InventoryPage from './pages/InventoryPage';
 import SettingsPage from './pages/SettingsPage';
 import ReceiptPage from './pages/ReceiptPage';
 import KitchenTicketPage from './pages/KitchenTicketPage';
+import BoxLabelsPage from './pages/BoxLabelsPage';
+import HandoverPage from './pages/HandoverPage';
 import UsersPage from './pages/UsersPage';
 import FullPageLoader from './components/FullPageLoader';
 import { ROLES } from './utils/roles';
@@ -53,6 +55,8 @@ export default function App() {
             </Route>
             {/* ใบสั่งครัว 80x80 มม. (ไม่มีราคา) — พิมพ์จาก POS/ครัว/ออเดอร์ */}
             <Route path="orders/:id/kitchen-ticket" element={<KitchenTicketPage />} />
+            {/* สติ๊กเกอร์กล่อง 60x40 มม. + บาร์โค้ด — พิมพ์ที่ครัวเมื่อออเดอร์เข้า */}
+            <Route path="orders/:id/labels" element={<BoxLabelsPage />} />
             {/* รายงานยอดขายสำหรับพิมพ์ / บันทึกเป็น PDF */}
             <Route element={<ProtectedRoute roles={[ADMIN]} />}>
               <Route
@@ -78,6 +82,7 @@ export default function App() {
               <Route element={<ProtectedRoute roles={[ADMIN, CASHIER]} />}>
                 <Route path="pos" element={<PosPage />} />
                 <Route path="orders" element={<OrdersPage />} />
+                <Route path="handover" element={<HandoverPage />} />
               </Route>
 
               <Route element={<ProtectedRoute roles={[ADMIN, KITCHEN]} />}>

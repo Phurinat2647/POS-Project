@@ -8,6 +8,8 @@ router.use(authenticate);
 
 // คิวครัว (ต้องอยู่ก่อน /:id)
 router.get('/kitchen', authorize('admin', 'cashier', 'kitchen'), asyncHandler(ctrl.kitchenQueue));
+// สแกนบาร์โค้ดสติ๊กเกอร์ที่จุดส่งมอบ (ต้องอยู่ก่อน /:id)
+router.get('/lookup', authorize('admin', 'cashier'), asyncHandler(ctrl.lookup));
 
 router.get('/', authorize('admin', 'cashier'), asyncHandler(ctrl.list));
 router.get('/:id', authorize('admin', 'cashier', 'kitchen'), asyncHandler(ctrl.getOne));

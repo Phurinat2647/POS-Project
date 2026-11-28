@@ -10,6 +10,7 @@
   },
   "dependencies": {
     "axios": "^1.21.0",
+    "jsbarcode": "^3.11.6",
     "lucide-react": "^1.70.0",
     "qrcode": "^1.5.4",
     "react": "^19.3.1",

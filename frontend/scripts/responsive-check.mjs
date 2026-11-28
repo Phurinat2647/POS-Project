@@ -39,8 +39,8 @@ const VIEWPORTS = [
 ];
 
 const PAGES = {
-  admin: ['/', '/pos', '/orders', '/kitchen', '/menus', '/categories', '/menu-options', '/inventory', '/reports', '/users', '/settings', '/system-status', '/change-password'],
-  cashier: ['/', '/pos', '/orders'],
+  admin: ['/', '/pos', '/orders', '/handover', '/kitchen', '/menus', '/categories', '/menu-options', '/inventory', '/reports', '/users', '/settings', '/system-status', '/change-password'],
+  cashier: ['/', '/pos', '/orders', '/handover'],
   kitchen: ['/kitchen', '/inventory', '/menus'],
 };
 const PASSWORDS = { admin: 'admin1234', cashier: 'cashier1234', kitchen: 'kitchen1234' };
