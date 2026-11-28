@@ -88,6 +88,7 @@ export default function ReportsPage() {
       { header: t('จำนวนรายการ'), value: (o) => o.itemCount },
       { header: t('ยอดรวม'), value: (o) => o.subtotal.toFixed(2) },
       { header: t('ส่วนลด'), value: (o) => o.discount.toFixed(2) },
+      { header: 'VAT', value: (o) => (o.vatAmount || 0).toFixed(2) },
       { header: t('ยอดสุทธิ'), value: (o) => o.total.toFixed(2) },
       { header: t('วิธีชำระ'), value: (o) => METHOD_LABEL[o.method] },
     ], data.orders);
@@ -165,7 +166,7 @@ function Report({ data }) {
   return (
     <div className="space-y-4">
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <Stat label={t('ยอดขายสุทธิ')} value={formatCurrency(s.netSales)} strong />
+        <Stat label={t('ยอดขายสุทธิ')} value={formatCurrency(s.netSales)} sub={s.vat > 0 ? t('รวม VAT {0}', [formatCurrency(s.vat)]) : undefined} strong />
         <Stat label={t('จำนวนบิล')} value={formatNumber(s.bills)} sub={t('{0} จาน/แก้ว', [formatNumber(s.itemsSold)])} />
         <Stat label={t('เฉลี่ยต่อบิล')} value={formatCurrency(s.averagePerBill)} />
         <Stat label={t('ส่วนลดรวม')} value={formatCurrency(s.discount)} sub={t('ยอดก่อนส่วนลด {0}', [formatCurrency(s.grossSales)])} />

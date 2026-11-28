@@ -68,7 +68,7 @@ export default function SettingsPage() {
 
   return (
     <div className="mx-auto max-w-3xl">
-      <PageHeader title={t('ตั้งค่าร้าน')} description={t('ข้อมูลที่แสดงบนใบเสร็จ และเลข PromptPay สำหรับรับชำระเงิน')} />
+      <PageHeader title={t('ตั้งค่าร้าน')} description={t('ข้อมูลที่แสดงบนใบเสร็จ, VAT และเลข PromptPay สำหรับรับชำระเงิน')} />
       <form onSubmit={submit} className="card space-y-4 p-5">
         {FIELDS.map((f) => (
           <div key={f.key}>
@@ -109,6 +109,38 @@ export default function SettingsPage() {
             )}
           </div>
         ))}
+        <fieldset className="rounded-xl border border-slate-200 p-4">
+          <legend className="px-1 text-sm font-medium">{t('ภาษีมูลค่าเพิ่ม (VAT)')}</legend>
+          <label className="flex cursor-pointer items-center gap-2">
+            <input
+              type="checkbox"
+              className="h-4 w-4 accent-primary-800"
+              checked={form.vatEnabled}
+              onChange={(e) => setForm({ ...form, vatEnabled: e.target.checked })}
+            />
+            <span className="text-sm">{t('คิด VAT บวกเพิ่มจากยอดขาย (หลังหักส่วนลด)')}</span>
+          </label>
+          {form.vatEnabled && (
+            <div className="mt-3 max-w-40">
+              <label className="label" htmlFor="vatRate">{t('อัตรา VAT (%)')}</label>
+              <input
+                id="vatRate"
+                type="number"
+                inputMode="decimal"
+                min="0.01"
+                max="30"
+                step="0.01"
+                required
+                className="input"
+                value={form.vatRate}
+                onChange={(e) => setForm({ ...form, vatRate: e.target.value })}
+              />
+            </div>
+          )}
+          <p className="mt-2 text-xs text-slate-500">
+            {t('มีผลกับออเดอร์ที่ชำระหลังจากบันทึก — ใบเสร็จที่ชำระไปแล้วไม่เปลี่ยน')}
+          </p>
+        </fieldset>
         <div className="flex justify-end">
           <button className="btn-primary" disabled={saving}>
             {saving ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />} {t('บันทึก')}

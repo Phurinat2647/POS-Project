@@ -157,4 +157,6 @@ INSERT INTO `settings` (`setting_key`, `setting_value`) VALUES
   ('shop_phone',       '02-123-4567'),
   ('tax_id',           ''),
   ('promptpay_id',     '0812345678'),
-  ('receipt_footer',   'ขอบคุณที่ใช้บริการ');
+  ('receipt_footer',   'ขอบคุณที่ใช้บริการ'),
+  ('vat_enabled',      '0'),
+  ('vat_rate',         '7');

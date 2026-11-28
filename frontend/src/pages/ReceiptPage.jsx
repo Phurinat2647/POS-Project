@@ -200,6 +200,12 @@ export default function ReceiptPage() {
           <Divider />
           <Row label={t('รวม')} value={money(order.subtotal)} />
           {order.discount > 0 && <Row label={t('ส่วนลด')} value={`-${money(order.discount)}`} />}
+          {order.vatAmount > 0 && (
+            <>
+              <Row label={t('ยอดก่อน VAT')} value={money(order.total - order.vatAmount)} />
+              <Row label={t('VAT {0}%', [order.vatRate])} value={money(order.vatAmount)} />
+            </>
+          )}
           <Row label={t('ยอดสุทธิ')} value={money(order.total)} bold />
           <Divider />
           {p && (

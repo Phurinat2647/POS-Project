@@ -169,7 +169,9 @@ CREATE TABLE `orders` (
   `payment_status` ENUM('unpaid','paid') NOT NULL DEFAULT 'unpaid',
   `subtotal`       DECIMAL(12,2) NOT NULL DEFAULT 0.00,
   `discount`       DECIMAL(12,2) NOT NULL DEFAULT 0.00,
-  `total`          DECIMAL(12,2) NOT NULL DEFAULT 0.00,
+  `vat_rate`       DECIMAL(5,2)  NOT NULL DEFAULT 0.00 COMMENT 'อัตรา VAT (%) ที่ใช้ตอนชำระ, 0 = ไม่คิด VAT',
+  `vat_amount`     DECIMAL(12,2) NOT NULL DEFAULT 0.00 COMMENT 'VAT ที่บวกเพิ่มจาก (subtotal - discount)',
+  `total`         DECIMAL(12,2) NOT NULL DEFAULT 0.00,
   `note`           VARCHAR(500) NULL,
   `cashier_id`     INT UNSIGNED NULL,
   `created_at`     DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -186,7 +188,8 @@ CREATE TABLE `orders` (
   KEY `idx_orders_cashier` (`cashier_id`),
   CONSTRAINT `fk_orders_cashier` FOREIGN KEY (`cashier_id`) REFERENCES `users` (`id`)
     ON UPDATE CASCADE ON DELETE SET NULL,
-  CONSTRAINT `chk_orders_amounts` CHECK (`subtotal` >= 0 AND `discount` >= 0 AND `total` >= 0)
+  CONSTRAINT `chk_orders_amounts` CHECK (`subtotal` >= 0 AND `discount` >= 0 AND `total` >= 0),
+  CONSTRAINT `chk_orders_vat` CHECK (`vat_rate` >= 0 AND `vat_rate` <= 30 AND `vat_amount` >= 0)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- ---------------------------------------------------------------------

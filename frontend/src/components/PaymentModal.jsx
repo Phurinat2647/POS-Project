@@ -23,6 +23,11 @@ function discountSatang(subtotalSatang, type, value) {
   return type === 'percent' ? Math.round((subtotalSatang * v) / 100) : toSatang(v);
 }
 
+/** VAT (สตางค์) — สูตรเดียวกับ backend payment.service.vatSatang */
+function vatSatang(netSatang, rate) {
+  return rate ? Math.round((netSatang * rate) / 100) : 0;
+}
+
 /** ปุ่มลัดจำนวนเงินที่รับ: พอดี + ปัดขึ้นเป็นแบงก์ */
 function quickAmounts(totalSatang) {
   const tx = toBaht(totalSatang);
@@ -41,6 +46,7 @@ export default function PaymentModal({ order, onClose, onPaid }) {
   const [received, setReceived] = useState('');
   const [referenceNo, setReferenceNo] = useState('');
   const [promptpayId, setPromptpayId] = useState(null); // null = กำลังโหลด
+  const [vatRate, setVatRate] = useState(0); // 0 = ไม่คิด VAT (ยอดจริงคำนวณที่ Backend ตามค่าตั้งร้าน)
   const [qr, setQr] = useState(null);
   const [submitting, setSubmitting] = useState(false);
 
@@ -54,7 +60,9 @@ export default function PaymentModal({ order, onClose, onPaid }) {
         : Number(discountValue) < 0
           ? t('ส่วนลดต้องไม่ติดลบ')
           : null;
-  const total = discountError ? subtotal : subtotal - discount;
+  const net = discountError ? subtotal : subtotal - discount;
+  const vat = vatSatang(net, vatRate);
+  const total = net + vat;
   const receivedSatang = toSatang(received);
   const change = receivedSatang - total;
   const quick = useMemo(() => quickAmounts(total), [total]);
@@ -62,7 +70,11 @@ export default function PaymentModal({ order, onClose, onPaid }) {
   useEffect(() => {
     let cancelled = false;
     getSettings()
-      .then((s) => !cancelled && setPromptpayId(s.promptpayId || ''))
+      .then((s) => {
+        if (cancelled) return;
+        setPromptpayId(s.promptpayId || '');
+        setVatRate(s.vatEnabled ? Number(s.vatRate) || 0 : 0);
+      })
       .catch(() => !cancelled && setPromptpayId(''));
     return () => {
       cancelled = true;
@@ -83,7 +95,7 @@ export default function PaymentModal({ order, onClose, onPaid }) {
   }, [method, promptpayId, total]);
 
   const canSubmit =
-    !submitting && !discountError && (method === 'promptpay' || (received !== '' && change >= 0));
+    !submitting && promptpayId !== null && !discountError && (method === 'promptpay' || (received !== '' && change >= 0));
 
   const submit = async (e) => {
     e.preventDefault();
@@ -152,6 +164,12 @@ export default function PaymentModal({ order, onClose, onPaid }) {
             <div className="flex justify-between">
               <dt className="text-slate-500">{t('ส่วนลด')}</dt>
               <dd className="tabular-nums text-danger">-{formatCurrency(toBaht(discount))}</dd>
+            </div>
+          )}
+          {vat > 0 && (
+            <div className="flex justify-between">
+              <dt className="text-slate-500">{t('VAT {0}%', [vatRate])}</dt>
+              <dd className="tabular-nums">+{formatCurrency(toBaht(vat))}</dd>
             </div>
           )}
           <div className="flex items-end justify-between pt-1">

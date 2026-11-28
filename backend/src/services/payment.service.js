@@ -18,6 +18,12 @@ function discountSatang(subtotalSatang, discount) {
   return d;
 }
 
+/** VAT (สตางค์) = ยอดหลังส่วนลด × อัตรา% ปัดเศษเป็นสตางค์ — rate 0 = ไม่คิด VAT */
+function vatSatang(netSatang, rate) {
+  if (!rate) return 0;
+  return Math.round((netSatang * rate) / 100);
+}
+
 /**
  * รับชำระเงิน (1 ออเดอร์ชำระได้ครั้งเดียว)
  * - lock ออเดอร์ด้วย FOR UPDATE, คำนวณยอดใหม่จาก subtotal ใน DB (ไม่เชื่อยอดจาก client)
@@ -36,7 +42,11 @@ async function pay(orderId, data, userId) {
 
     const subtotal = toSatang(order.subtotal);
     const discount = discountSatang(subtotal, data.discount);
-    const total = subtotal - discount;
+    // VAT บวกเพิ่มจากยอดหลังหักส่วนลด ตามค่าที่ตั้งไว้ ณ ตอนชำระ (เก็บอัตรา/ยอดไว้ในออเดอร์เป็น snapshot)
+    const shop = await settingsService.getAll(conn);
+    const vatRate = shop.vatEnabled ? shop.vatRate : 0;
+    const vat = vatSatang(subtotal - discount, vatRate);
+    const total = subtotal - discount + vat;
 
     let received = total;
     if (data.method === 'cash') {
@@ -50,8 +60,9 @@ async function pay(orderId, data, userId) {
 
     const [[{ now }]] = await conn.query('SELECT NOW() AS now');
     await conn.query(
-      `UPDATE orders SET discount = ?, total = ?, payment_status = 'paid', paid_at = ? WHERE id = ?`,
-      [toBaht(discount), toBaht(total), now, orderId]
+      `UPDATE orders SET discount = ?, vat_rate = ?, vat_amount = ?, total = ?, payment_status = 'paid', paid_at = ?
+        WHERE id = ?`,
+      [toBaht(discount), vatRate, toBaht(vat), toBaht(total), now, orderId]
     );
     await conn.query(
       `INSERT INTO payments (order_id, method, amount, received_amount, change_amount, reference_no, received_by, paid_at)
@@ -71,4 +82,4 @@ async function getReceipt(orderId) {
   return { shop, order };
 }
 
-module.exports = { pay, getReceipt, discountSatang };
+module.exports = { pay, getReceipt, discountSatang, vatSatang };
